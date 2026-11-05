@@ -1,0 +1,13 @@
+{
+  "name": "@trustora/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "^5.12.8"
+  }
+}
