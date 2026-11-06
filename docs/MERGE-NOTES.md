@@ -87,7 +87,9 @@ Stub manifests with no real counterpart on the product side (`packages/og/packag
 ## Verifying this
 
 - `git log --graph --oneline` shows both histories as real parents of the merge commit.
-- `git log --follow -- reference/api-fastify/api/src/app.ts` (and similarly for other moved files)
-  still resolves through the rename to the original commits.
+- `git log --follow -- apps/api/src/app.ts` (the *old* path; `--follow` does not cross a merge
+  commit's rename when queried by the new path) walks the original commits. `git diff -M <merge
+  commit's first parent> <merge commit> -- apps/api/src/app.ts
+  reference/api-fastify/api/src/app.ts` shows the rename directly, with its similarity index.
 - Nothing under `reference/api-fastify/` is imported by, or runs as part of, `apps/web` or the
   root npm workspace.
