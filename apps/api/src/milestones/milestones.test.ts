@@ -203,23 +203,13 @@ describe("Milestone End-to-End Demo Workflow", () => {
     });
     expect(outsiderRes.statusCode).toBe(404);
 
-    // Arbiter CAN view project (read-only)
+    // Arbiter is treated as an outsider on project agreement routes
     const arbiterReadRes = await app.inject({
       method: "GET",
       url: `/projects/${publicProjectId}`,
       cookies: arbiter.cookie,
     });
-    expect(arbiterReadRes.statusCode).toBe(200);
-    expect(arbiterReadRes.json().role).toBe("arbiter");
-
-    // Arbiter cannot accept agreement
-    const arbiterAcceptRes = await app.inject({
-      method: "POST",
-      url: `/projects/${publicProjectId}/agreement/accept`,
-      cookies: arbiter.cookie,
-      payload: { version: 1 },
-    });
-    expect(arbiterAcceptRes.statusCode).toBe(403);
+    expect(arbiterReadRes.statusCode).toBe(404);
 
     // Both parties accept agreement
     await app.inject({
@@ -389,6 +379,15 @@ describe("Milestone End-to-End Demo Workflow", () => {
     expect(timelineRes.statusCode).toBe(200);
     const timeline = timelineRes.json().events;
     expect(timeline.length).toBeGreaterThanOrEqual(4);
+    expect(timeline.every((e: { verificationStatus: string }) => e.verificationStatus !== "FAILED")).toBe(true);
+
+    // Outsider cannot access internal prooftrack timeline
+    const outsiderTimelineRes = await app.inject({
+      method: "GET",
+      url: `/projects/${publicProjectId}/prooftrack`,
+      cookies: outsider.cookie,
+    });
+    expect(outsiderTimelineRes.statusCode).toBe(404);
 
     // 8. Public verify endpoint (no auth required)
     const publicVerifyRes = await app.inject({
@@ -502,7 +501,7 @@ describe("Milestone End-to-End Demo Workflow", () => {
       method: "POST",
       url: `/projects/${pid}/milestones/${mid}/funding-proof`,
       cookies: client.cookie,
-      payload: { txHash: "0x" + "11".repeat(32) },
+      payload: { txHash: "0x" + "55".repeat(32) },
     });
     expect(mismatchFundRes.statusCode).toBe(400);
     expect(mismatchFundRes.json().error.code).toBe("FUNDING_MISMATCH");
@@ -514,7 +513,7 @@ describe("Milestone End-to-End Demo Workflow", () => {
       method: "POST",
       url: `/projects/${pid}/milestones/${mid}/funding-proof`,
       cookies: client.cookie,
-      payload: { txHash: "0x" + "55".repeat(32) },
+      payload: { txHash: "0x" + "77".repeat(32) },
     });
     expect(okFund.statusCode).toBe(200);
 

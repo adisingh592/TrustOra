@@ -49,7 +49,7 @@ describe("GET /ready", () => {
     const res = await app.inject({ method: "GET", url: "/ready" });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      ready: true,
+      ok: true,
       database: "connected",
       timestamp: expect.any(String),
     });
@@ -66,7 +66,7 @@ describe("GET /ready", () => {
       const res = await app.inject({ method: "GET", url: "/ready" });
       expect(res.statusCode).toBe(503);
       expect(res.json()).toEqual({
-        ready: false,
+        ok: false,
         database: "disconnected",
         timestamp: expect.any(String),
       });

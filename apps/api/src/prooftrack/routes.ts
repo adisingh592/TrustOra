@@ -79,11 +79,7 @@ export const proofTrackRoutes = async (app: FastifyInstance, deps: ProofTrackRou
     const project = await prisma.project.findFirst({
       where: {
         publicProjectId,
-        OR: [
-          { clientId: userId ?? "" },
-          { freelancerId: userId ?? "" },
-          { arbiterId: userId ?? "" },
-        ],
+        OR: [{ clientId: userId ?? "" }, { freelancerId: userId ?? "" }],
       },
       select: { id: true },
     });

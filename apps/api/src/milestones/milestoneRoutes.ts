@@ -99,6 +99,16 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
         return sendError(reply, 400, "MILESTONE_ALREADY_FUNDED", "This milestone is already funded.");
       }
 
+      // Terms must be agreed before funding
+      if (milestone.status !== "AGREED") {
+        return sendError(
+          reply,
+          400,
+          "MILESTONE_NOT_AGREED",
+          "Both parties must accept the milestone agreement before funding escrow.",
+        );
+      }
+
       const existingProof = await prisma.proofEvent.findUnique({
         where: {
           referenceType_referenceValue_eventType: {
@@ -122,16 +132,6 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
           400,
           "REFERENCE_ALREADY_USED",
           "This transaction hash has already been used for another project.",
-        );
-      }
-
-      // Terms must be agreed before funding
-      if (milestone.status !== "AGREED") {
-        return sendError(
-          reply,
-          400,
-          "MILESTONE_NOT_AGREED",
-          "Both parties must accept the milestone agreement before funding escrow.",
         );
       }
 
@@ -286,32 +286,6 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
       const milestone = project.milestones[0]!;
 
       // Milestone must be FUNDED or WORK_SUBMITTED
-      const existingProof = await prisma.proofEvent.findUnique({
-        where: {
-          referenceType_referenceValue_eventType: {
-            referenceType: "BLOCKCHAIN_TRANSACTION_HASH",
-            referenceValue: txHash,
-            eventType: "WORK_SUBMITTED",
-          },
-        },
-      });
-      if (existingProof) {
-        if (existingProof.publicProjectId === project.publicProjectId) {
-          return reply.send({
-            ok: true,
-            milestoneId: milestone.id,
-            status: milestone.status,
-            alreadyProcessed: true,
-          });
-        }
-        return sendError(
-          reply,
-          400,
-          "REFERENCE_ALREADY_USED",
-          "This transaction hash has already been used for another project.",
-        );
-      }
-
       if (milestone.status !== "FUNDED" && milestone.status !== "WORK_SUBMITTED") {
         return sendError(
           reply,

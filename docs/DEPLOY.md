@@ -33,7 +33,9 @@ Values below marked **example** are fake and illustrative only.
 | `ARC_TESTNET_USDC_ADDRESS` | **Yes** | `0x3600000000000000000000000000000000000000` | Validated as a real address at startup. Used as the token address for new projects. |
 | `TRUST_PROXY` | No (default `false`) | `true` | Set to `true` only if a reverse proxy or load balancer sits in front of the API and sets `X-Forwarded-*` headers. |
 | `COOKIE_SAMESITE` | No (default `lax`) | `none` | See "Same site vs. different site" below. |
-| `UPLOAD_DIR` | Not yet — **file uploads are not implemented in this codebase.** Will become required once they are. | `/data/uploads` | Reserved. |
+| `STORAGE_DIR` | No (default `.storage`) | `/data/storage` | Persistent private directory where uploaded deliverables are safely stored outside web root. |
+| `CHAIN_ADAPTER` | No (default `mock`) | `mock` or `arc` | Selects chain adapter mode. `arc` requires Arc env variables and real adapter from M1. |
+| `EVALUATION_ADAPTER` | No (default `heuristic`) | `heuristic` or `zerog` | Selects AI evaluation mode. `zerog` requires 0G env variables and real adapter from M3. |
 | `PORT` | No (default `3001`) | `3001` | The port the API listens on. |
 | `AUTH_DOMAIN`'s sibling values (`ARC_TESTNET_RPC_URL`, `ARC_TESTNET_CHAIN_ID`, `ARC_TESTNET_EXPLORER_URL`, `ARC_ESCROW_CONTRACT_ADDRESS`, `ARC_DEPLOYER_PRIVATE_KEY`) | Depends on M1's adapter | — | Not read by any code in `apps/api` yet. See `docs/INTEGRATION-HANDOFF.md`. |
 | `ARKIV_ENABLED`, `ARKIV_ACCESS_KEY`, `ARKIV_PRIVATE_KEY`, `ARKIV_ENTITY_DAYS` | No — optional feature, off by default | — | Public hash-only evidence anchoring. See the comments in `.env.example`. |
@@ -89,11 +91,17 @@ systemctl start trustora-api
 ## Health and readiness
 
 - `GET /health` — always public, always returns `{"ok":true}` if the process is up. Use this for a basic liveness probe.
-- `GET /ready` — always public, checks that the database answers a trivial query. Returns `200 {"ready":true}` or `503 {"ready":false}` with no further detail. Use this for a readiness probe (don't route traffic until it's `200`).
+- `GET /ready` — always public, checks that the database answers a trivial query. Returns `200 {"ok":true,"database":"connected","timestamp":...}` or `503 {"ok":false,"database":"disconnected","timestamp":...}`, with no further detail on failure. Use this for a readiness probe (don't route traffic until it's `200`).
 
 ## Wiring the real adapters
 
-Not available in this repo yet. `apps/api` reads `EscrowAdapter` and `EvaluationAdapter` implementations through the interfaces in `packages/shared`, but no env-driven factory wires a real one in — **TBD by M1 (chain adapter) and M3 (0G evaluation adapter).** See `docs/INTEGRATION-HANDOFF.md` for exactly what each owner needs to implement and which env variable names the API should read once that factory exists.
+Configured via `CHAIN_ADAPTER` and `EVALUATION_ADAPTER` environment flags:
+- `CHAIN_ADAPTER=mock`: uses in-memory `MOCK_ChainAdapter` (labelled "MOCK adapter" in responses and `/infrastructure`).
+- `CHAIN_ADAPTER=arc`: dynamically loads `@trustora/arc` from M1 and enforces `ARC_ESCROW_CONTRACT_ADDRESS`, `ARC_TESTNET_RPC_URL`, `ARC_TESTNET_USDC_ADDRESS`, `ARC_TESTNET_CHAIN_ID=5042002`.
+- `EVALUATION_ADAPTER=heuristic`: uses deterministic TAEVA heuristic fallback (labelled "MOCK" in advisory notes).
+- `EVALUATION_ADAPTER=zerog`: dynamically loads `@trustora/evaluation` from M3 and enforces `ZG_RPC_URL` / `ZG_STORAGE_CONTRACT`.
+
+If a real adapter is selected and its required environment variables or package exports are missing, the server refuses to start with an explicit error, avoiding any silent mock fallback.
 
 ## Graceful shutdown
 

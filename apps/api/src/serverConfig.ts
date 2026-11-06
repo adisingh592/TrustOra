@@ -15,6 +15,76 @@ const ProductionEnvSchema = z.object({
   ARC_TESTNET_USDC_ADDRESS: WalletAddressSchema,
 });
 
+export const StartupConfigSchema = z
+  .object({
+    NODE_ENV: z.string().optional(),
+    PORT: z
+      .string()
+      .regex(/^\d+$/)
+      .transform(Number)
+      .optional()
+      .default("3001"),
+    SESSION_SECRET: z.string().optional(),
+    DATABASE_URL: z.string().optional(),
+    AUTH_DOMAIN: z.string().optional(),
+    CORS_ORIGIN: z.string().optional(),
+    WEB_ORIGIN: z.string().optional(),
+    CHAIN_ADAPTER: z.enum(["mock", "arc"]).optional().default("mock"),
+    EVALUATION_ADAPTER: z.enum(["heuristic", "zerog"]).optional().default("heuristic"),
+    ARC_TESTNET_CHAIN_ID: z.string().optional(),
+    ARC_TESTNET_RPC_URL: z.string().optional(),
+    ARC_TESTNET_USDC_ADDRESS: z.string().optional(),
+    ARC_ESCROW_CONTRACT_ADDRESS: z.string().optional(),
+    ZG_RPC_URL: z.string().optional(),
+    ZG_STORAGE_CONTRACT: z.string().optional(),
+    ZG_MODEL_ID: z.string().optional(),
+    STORAGE_DIR: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.CHAIN_ADAPTER === "arc") {
+      if (!data.ARC_ESCROW_CONTRACT_ADDRESS) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ARC_ESCROW_CONTRACT_ADDRESS"],
+          message: "is required when CHAIN_ADAPTER=arc",
+        });
+      }
+      if (!data.ARC_TESTNET_RPC_URL) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ARC_TESTNET_RPC_URL"],
+          message: "is required when CHAIN_ADAPTER=arc",
+        });
+      }
+      if (data.ARC_TESTNET_CHAIN_ID !== "5042002") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ARC_TESTNET_CHAIN_ID"],
+          message: "must be 5042002 when CHAIN_ADAPTER=arc",
+        });
+      }
+    }
+
+    if (data.EVALUATION_ADAPTER === "zerog") {
+      if (!data.ZG_RPC_URL && !data.ZG_STORAGE_CONTRACT) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["ZG_RPC_URL"],
+          message: "is required when EVALUATION_ADAPTER=zerog",
+        });
+      }
+    }
+  });
+
+export const validateStartupConfig = (env: NodeJS.ProcessEnv = process.env) => {
+  const result = StartupConfigSchema.safeParse(env);
+  if (!result.success) {
+    const problems = result.error.issues.map((i) => `${i.path.join(".")} ${i.message}`);
+    throw new Error(`Startup config validation failed:\n- ${problems.join("\n- ")}`);
+  }
+  return result.data;
+};
+
 /** Throws a single, secret-free, multi-line message naming every problem found. */
 export const validateProductionEnv = (env: NodeJS.ProcessEnv = process.env): void => {
   if (env.NODE_ENV !== "production") return;

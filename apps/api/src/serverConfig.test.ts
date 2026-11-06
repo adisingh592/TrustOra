@@ -60,3 +60,45 @@ describe("validateProductionEnv", () => {
     }
   });
 });
+
+describe("validateStartupConfig & loadAdapters", () => {
+  it("defaults to mock chain adapter and heuristic evaluation adapter", async () => {
+    const { validateStartupConfig } = await import("./serverConfig.js");
+    const { loadAdapters } = await import("./adapters/loader.js");
+
+    const parsed = validateStartupConfig({});
+    expect(parsed.CHAIN_ADAPTER).toBe("mock");
+    expect(parsed.EVALUATION_ADAPTER).toBe("heuristic");
+
+    const loaded = await loadAdapters({});
+    expect(loaded.chainMode).toBe("mock");
+    expect(loaded.evaluationMode).toBe("heuristic");
+    expect(loaded.chainAdapter.getConfig().chainId).toBe(5042002);
+  });
+
+  it("refuses to start when CHAIN_ADAPTER=arc has missing environment variables", async () => {
+    const { validateStartupConfig } = await import("./serverConfig.js");
+    const { loadAdapters } = await import("./adapters/loader.js");
+
+    expect(() => validateStartupConfig({ CHAIN_ADAPTER: "arc" })).toThrow(
+      /ARC_ESCROW_CONTRACT_ADDRESS/,
+    );
+
+    await expect(loadAdapters({ CHAIN_ADAPTER: "arc" })).rejects.toThrow(
+      /Refusing to start with CHAIN_ADAPTER=arc/,
+    );
+  });
+
+  it("refuses to start when EVALUATION_ADAPTER=zerog has missing environment variables", async () => {
+    const { validateStartupConfig } = await import("./serverConfig.js");
+    const { loadAdapters } = await import("./adapters/loader.js");
+
+    expect(() => validateStartupConfig({ EVALUATION_ADAPTER: "zerog" })).toThrow(
+      /ZG_RPC_URL/,
+    );
+
+    await expect(loadAdapters({ EVALUATION_ADAPTER: "zerog" })).rejects.toThrow(
+      /Refusing to start with EVALUATION_ADAPTER=zerog/,
+    );
+  });
+});

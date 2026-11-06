@@ -85,6 +85,13 @@ export const buildApp = (options: BuildAppOptions = {}) => {
     },
   });
 
+  app.addHook("onSend", async (_request, reply, payload) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "DENY");
+    reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    return payload;
+  });
+
   app.get("/health", async () => ({ ok: true }));
   app.get("/ready", async (_request, reply) => {
     try {

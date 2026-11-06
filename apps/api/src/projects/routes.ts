@@ -81,12 +81,7 @@ const toResponse = (project: LoadedProject, userId: string) => {
     description: project.description,
     status: project.status,
     paymentMode: project.paymentMode ?? "ARC_ESCROW",
-    role:
-      project.clientId === userId
-        ? "client"
-        : project.freelancerId === userId
-          ? "freelancer"
-          : "arbiter",
+    role: project.clientId === userId ? "client" : "freelancer",
     clientWallet: project.client.walletAddress,
     freelancerWallet: project.freelancer?.walletAddress ?? null,
     arbiterWallet: project.arbiter?.walletAddress ?? null,
@@ -132,10 +127,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
 
   const loadForParticipant = (publicProjectId: string, userId: string) =>
     prisma.project.findFirst({
-      where: {
-        publicProjectId,
-        OR: [{ clientId: userId }, { freelancerId: userId }, { arbiterId: userId }],
-      },
+      where: { publicProjectId, OR: [{ clientId: userId }, { freelancerId: userId }] },
       include: PROJECT_INCLUDE,
     });
 
@@ -262,9 +254,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
   app.get("/projects", async (request) => {
     const userId = request.userId ?? "";
     const projects = await prisma.project.findMany({
-      where: {
-        OR: [{ clientId: userId }, { freelancerId: userId }, { arbiterId: userId }],
-      },
+      where: { OR: [{ clientId: userId }, { freelancerId: userId }] },
       include: PROJECT_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
@@ -281,13 +271,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
   app.post<{ Params: { id: string } }>("/projects/:id/agreement/versions", async (request, reply) => {
     const userId = request.userId ?? "";
     if (!PublicProjectIdSchema.safeParse(request.params.id).success) return notFound(reply);
-    const existingProject = await loadForParticipant(request.params.id, userId);
-    if (!existingProject) return notFound(reply);
-
-    // Arbiter is read-only
-    if (existingProject.arbiterId === userId && existingProject.clientId !== userId && existingProject.freelancerId !== userId) {
-      return sendError(reply, 403, "FORBIDDEN", "Arbiters cannot propose agreement versions.");
-    }
+    if (!(await loadForParticipant(request.params.id, userId))) return notFound(reply);
 
     const body = ProposeVersionBodySchema.safeParse(request.body);
     if (!body.success) return invalidInput(reply, body.error);
@@ -376,11 +360,6 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
     if (!PublicProjectIdSchema.safeParse(request.params.id).success) return notFound(reply);
     const visible = await loadForParticipant(request.params.id, userId);
     if (!visible) return notFound(reply);
-
-    // Arbiter is read-only
-    if (visible.arbiterId === userId && visible.clientId !== userId && visible.freelancerId !== userId) {
-      return sendError(reply, 403, "FORBIDDEN", "Arbiters cannot accept agreements on behalf of parties.");
-    }
 
     const body = AcceptAgreementBodySchema.safeParse(request.body);
     if (!body.success) return invalidInput(reply, body.error);

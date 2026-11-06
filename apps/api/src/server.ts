@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildApp } from "./app.js";
 import { prisma } from "./db.js";
-import { validateProductionEnv } from "./serverConfig.js";
+import { validateProductionEnv, validateStartupConfig } from "./serverConfig.js";
 import { installGracefulShutdown } from "./shutdown.js";
 
 const isTest = process.env.NODE_ENV === "test";
@@ -15,7 +15,10 @@ if (!isTest && existsSync(envFile)) process.loadEnvFile(envFile);
 const createApp = () => {
   try {
     validateProductionEnv();
-    return buildApp();
+    validateStartupConfig();
+    return buildApp({
+      storageDir: process.env.STORAGE_DIR,
+    });
   } catch (err) {
     console.error(err instanceof Error ? err.message : "Could not start the API.");
     process.exit(1);
