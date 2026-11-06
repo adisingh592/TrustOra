@@ -6,7 +6,8 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "tsx watch src/server.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:check": "tsx test/manual-db-check.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
