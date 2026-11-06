@@ -12,7 +12,7 @@ export {
   verifierKey,
 } from "./core.js";
 export { compareEvents, sortEvents } from "./ordering.js";
-export { buildTimeline, explorerUrlFor, toTimelineItem } from "./timeline.js";
+export { ANCHOR_NOTE, buildTimeline, explorerUrlFor, toTimelineItem } from "./timeline.js";
 export { validateEventInput, type ValidatedEventInput } from "./events.js";
 export {
   cleanReason,

@@ -233,6 +233,10 @@ export const ProofEventExpectedSchema = z
     arbiterWallet: WalletAddressSchema.optional(),
     agreementHash: Hash32Schema.optional(),
     deliverableSha256: Hash32Schema.optional(),
+    /** On EVIDENCE_ANCHORED: which ProofTrack event this anchor is for. */
+    sourceEventId: z.string().min(1).max(100).optional(),
+    /** On EVIDENCE_ANCHORED: estimated expiry. Anchors expire. */
+    anchorExpiresAt: z.string().datetime().optional(),
   })
   .strict();
 export type ProofEventExpected = z.output<typeof ProofEventExpectedSchema>;
@@ -256,6 +260,33 @@ export const RecordProofEventInputSchema = z
   })
   .strict();
 export type RecordProofEventInput = z.output<typeof RecordProofEventInputSchema>;
+
+/** An Arkiv entity key: exactly 32 bytes of 0x hex (SDK 1.0.1, key() in schema/values). */
+export const AnchorEntityKeySchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{64}$/, "must be 0x followed by 64 hex characters")
+  .transform((value) => value.toLowerCase());
+
+const Sha256HexSchema = z.string().regex(/^[0-9a-f]{64}$/, "must be lowercase SHA-256 hex");
+/** Arkiv limits a str value to 128 bytes of UTF-8. Printable ASCII is one byte per character. */
+const AnchorTextSchema = z.string().regex(/^[\x20-\x7e]{1,128}$/, "must be up to 128 printable characters");
+
+/**
+ * Everything written to Arkiv, which is public. Strict, so no other field, such as a
+ * file name, title or criteria, can ever be part of it.
+ */
+export const AnchorPayloadSchema = z
+  .object({
+    projectId: PublicProjectIdSchema,
+    eventType: ProofEventTypeSchema,
+    eventDigest: Sha256HexSchema,
+    subjectDigest: Sha256HexSchema.optional(),
+    network: AnchorTextSchema,
+    reference: AnchorTextSchema,
+    occurredAt: z.string().datetime(),
+  })
+  .strict();
+export type AnchorPayload = z.output<typeof AnchorPayloadSchema>;
 
 /* -------------------------------------------------------------------------- */
 /* TAEVA (Trustora Adaptive Evidence Verification Algorithm) Schemas          */

@@ -11,6 +11,7 @@ export const PROOF_EVENT_TYPES = [
   "PAYMENT_RELEASED",
   "AGENT_PAYMENT_SETTLED",
   "AGENT_PAYMENT_DENIED",
+  "EVIDENCE_ANCHORED",
 ] as const;
 export type ProofEventType = (typeof PROOF_EVENT_TYPES)[number];
 

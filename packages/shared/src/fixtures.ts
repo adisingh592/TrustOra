@@ -20,6 +20,9 @@ export const FIXTURE_PROJECT = fixture({
 /** Valid format only, so it passes the schema. It is not a real transaction. */
 export const FIXTURE_TX_HASH = `0x${"0".repeat(64)}`;
 
+/** Valid format only. No such Arkiv entity exists. */
+export const FIXTURE_ENTITY_KEY = `0x${"0".repeat(63)}1`;
+
 const FIXTURE_MILESTONE_ID = "FIXTURE_MILESTONE_0001";
 const FIXTURE_OCCURRED_AT = "2026-01-01T00:00:00.000Z";
 const FIXTURE_NETWORK = "FIXTURE_NETWORK";
@@ -48,6 +51,12 @@ const proofEvent = (
 
 /** One sample ProofEvent per event type. */
 export const FIXTURE_PROOF_EVENTS: Record<ProofEventType, Fixture<ProofEvent>> = {
+  EVIDENCE_ANCHORED: proofEvent(
+    "EVIDENCE_ANCHORED",
+    "ARKIV",
+    "STORAGE_REFERENCE",
+    FIXTURE_ENTITY_KEY,
+  ),
   AGREEMENT_ACCEPTED_CLIENT: proofEvent(
     "AGREEMENT_ACCEPTED_CLIENT",
     "APPLICATION",

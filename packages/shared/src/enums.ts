@@ -1,4 +1,4 @@
-export const ECOSYSTEMS = ["ARC", "ZERO_G", "HEDERA", "APPLICATION"] as const;
+export const ECOSYSTEMS = ["ARC", "ZERO_G", "HEDERA", "APPLICATION", "ARKIV"] as const;
 export type Ecosystem = (typeof ECOSYSTEMS)[number];
 
 export const REFERENCE_TYPES = [

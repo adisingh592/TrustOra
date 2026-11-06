@@ -93,6 +93,10 @@ export interface TimelineItem {
   occurredAt: string;
   explorerUrl: string | null;
   summary: string;
+  /** Only on EVIDENCE_ANCHORED. An estimate, or null if unknown. */
+  expiresAt?: string | null;
+  /** Only on EVIDENCE_ANCHORED. */
+  note?: string;
 }
 
 export type ProofTrackErrorCode =

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AcceptAgreementBodySchema,
+  AnchorEntityKeySchema,
+  AnchorPayloadSchema,
   AgentPaymentRequestSchema,
   CreateProjectBodySchema,
   EvaluationResultSchema,
@@ -469,5 +471,50 @@ describe("TAEVA, ScopeGuard, TrustShield & Unified Trust Report schemas", () => 
       disclaimer: "Advisory trust report.",
     };
     expect(UnifiedTrustReportSchema.safeParse(unifiedReport).success).toBe(true);
+  });
+});
+
+describe("Arkiv anchor schemas", () => {
+  const payload = {
+    projectId: "TRU-PROJ-2026-0001042",
+    eventType: "MILESTONE_FUNDED",
+    eventDigest: "a".repeat(64),
+    network: "Arc Testnet",
+    reference: `0x${"b".repeat(64)}`,
+    occurredAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  it("an entity key is 32 bytes of 0x hex, stored lowercase", () => {
+    expect(AnchorEntityKeySchema.parse(`0x${"A".repeat(64)}`)).toBe(`0x${"a".repeat(64)}`);
+    for (const key of ["0x1234", "a".repeat(64), `0x${"g".repeat(64)}`, 42]) {
+      expect(AnchorEntityKeySchema.safeParse(key).success).toBe(false);
+    }
+  });
+
+  it("accepts a payload, with or without a subject digest", () => {
+    expect(AnchorPayloadSchema.safeParse(payload).success).toBe(true);
+    expect(AnchorPayloadSchema.safeParse({ ...payload, subjectDigest: "c".repeat(64) }).success).toBe(true);
+  });
+
+  it.each(["title", "description", "fileName", "criteria", "wallet", "amountBaseUnits"])("refuses an extra %s", (field) => {
+    expect(AnchorPayloadSchema.safeParse({ ...payload, [field]: "x" }).success).toBe(false);
+  });
+
+  it.each<[string, object]>([
+    ["an uppercase digest", { eventDigest: "A".repeat(64) }],
+    ["a short digest", { eventDigest: "abc" }],
+    ["a bad subject digest", { subjectDigest: "abc" }],
+    ["a reference over 128 bytes", { reference: "x".repeat(129) }],
+    ["non-ASCII text", { network: "नेटवर्क" }],
+    ["an empty network", { network: "" }],
+    ["a bad time", { occurredAt: "yesterday" }],
+    ["an unknown event type", { eventType: "MADE_UP" }],
+    ["a bad project ID", { projectId: "x" }],
+  ])("refuses %s", (_label, change) => {
+    expect(AnchorPayloadSchema.safeParse({ ...payload, ...change }).success).toBe(false);
+  });
+
+  it("a reference of exactly 128 characters is allowed", () => {
+    expect(AnchorPayloadSchema.safeParse({ ...payload, reference: "x".repeat(128) }).success).toBe(true);
   });
 });

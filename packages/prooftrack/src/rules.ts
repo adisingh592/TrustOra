@@ -14,6 +14,7 @@ export const ALLOWED_COMBINATIONS: Readonly<
   PAYMENT_RELEASED: { ecosystem: "ARC", referenceType: "BLOCKCHAIN_TRANSACTION_HASH" },
   AGENT_PAYMENT_SETTLED: { ecosystem: "HEDERA", referenceType: "FACILITATOR_SETTLEMENT_ID" },
   AGENT_PAYMENT_DENIED: { ecosystem: "HEDERA", referenceType: "APPLICATION_EVENT_ID" },
+  EVIDENCE_ANCHORED: { ecosystem: "ARKIV", referenceType: "STORAGE_REFERENCE" },
 };
 
 /** Neutral wording: a summary says what was reported, never that it was verified. */
@@ -27,6 +28,7 @@ export const EVENT_SUMMARIES: Readonly<Record<ProofEventType, string>> = {
   PAYMENT_RELEASED: "Payment release transaction for this milestone.",
   AGENT_PAYMENT_SETTLED: "Agent payment settlement.",
   AGENT_PAYMENT_DENIED: "Agent payment denied by policy.",
+  EVIDENCE_ANCHORED: "Public hash-only record of an event, on the Arkiv testnet.",
 };
 
 const TRANSACTION_HASH = /^0x[0-9a-fA-F]{64}$/;
@@ -35,9 +37,24 @@ const OPAQUE_REFERENCE = /^[\x21-\x7e]{1,256}$/;
 
 /**
  * Checks a reference against its type and returns the form to store. Only a
- * transaction hash may have the shape of one, so types can never be mixed up.
+ * transaction hash may have the shape of one, so types can never be mixed up. The one
+ * exception is an Arkiv entity key: Arkiv's keys are 32 bytes of 0x hex, so that shape
+ * is required there, and the reference type is what says it is not a transaction.
  */
-export const normalizeReference = (referenceType: ReferenceType, value: string): string => {
+export const normalizeReference = (
+  referenceType: ReferenceType,
+  value: string,
+  ecosystem?: Ecosystem,
+): string => {
+  if (ecosystem === "ARKIV" && referenceType === "STORAGE_REFERENCE") {
+    if (!TRANSACTION_HASH.test(value)) {
+      throw new ProofTrackError(
+        "INVALID_REFERENCE",
+        "An Arkiv entity key must be 0x followed by 64 hex characters.",
+      );
+    }
+    return value.toLowerCase();
+  }
   if (referenceType === "BLOCKCHAIN_TRANSACTION_HASH") {
     if (!TRANSACTION_HASH.test(value)) {
       throw new ProofTrackError(

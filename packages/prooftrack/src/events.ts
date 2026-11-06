@@ -38,7 +38,7 @@ export const validateEventInput = (rawInput: unknown): ValidatedEventInput => {
     throw new ProofTrackError("WRONG_CHAIN", `ARC events must use chain ID ${ARC_TESTNET_CHAIN_ID}.`);
   }
 
-  const normalizedReference = normalizeReference(input.referenceType, input.referenceValue);
+  const normalizedReference = normalizeReference(input.referenceType, input.referenceValue, input.ecosystem);
   const naturalKey: NaturalKey = {
     referenceType: input.referenceType,
     referenceValue: normalizedReference,

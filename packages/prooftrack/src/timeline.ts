@@ -2,6 +2,8 @@ import type { Ecosystem } from "@trustora/shared";
 import { sortEvents } from "./ordering.js";
 import type { StoredEvent, TimelineFilter, TimelineItem } from "./types.js";
 
+export const ANCHOR_NOTE = "Public hash-only record on the Arkiv testnet. It expires.";
+
 export const explorerUrlFor = (
   event: StoredEvent,
   templates: Partial<Record<Ecosystem, string>> = {},
@@ -29,6 +31,9 @@ export const toTimelineItem = (
   occurredAt: event.occurredAt.toISOString(),
   explorerUrl: explorerUrlFor(event, templates),
   summary: event.summary,
+  ...(event.eventType === "EVIDENCE_ANCHORED"
+    ? { expiresAt: event.expected.anchorExpiresAt ?? null, note: ANCHOR_NOTE }
+    : {}),
 });
 
 /**

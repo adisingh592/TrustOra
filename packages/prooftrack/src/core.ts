@@ -7,6 +7,7 @@ import {
 } from "@trustora/shared";
 import { ALLOWED_COMBINATIONS, EVENT_SUMMARIES, normalizeReference } from "./rules.js";
 import { compareEvents } from "./ordering.js";
+import { toTimelineItem } from "./timeline.js";
 import {
   DuplicateEventError,
   type EventStore,
@@ -92,28 +93,6 @@ export const createProofTrack = (options: ProofTrackOptions): ProofTrack => {
   const timeoutMs = options.timeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS;
   const concurrency = Math.max(1, options.concurrency ?? DEFAULT_VERIFY_CONCURRENCY);
 
-  const explorerUrlFor = (event: StoredEvent) => {
-    const template = explorerTemplates[event.ecosystem];
-    return template
-      ? template.replaceAll("{reference}", encodeURIComponent(event.referenceValue))
-      : null;
-  };
-
-  const toTimelineItem = (event: StoredEvent): TimelineItem => ({
-    id: event.id,
-    type: event.eventType,
-    ecosystem: event.ecosystem,
-    network: event.network,
-    referenceType: event.referenceType,
-    reference: event.referenceValue,
-    status: event.verificationStatus,
-    statusReason: event.statusReason,
-    lastCheckedAt: event.lastCheckedAt?.toISOString() ?? null,
-    occurredAt: event.occurredAt.toISOString(),
-    explorerUrl: explorerUrlFor(event),
-    summary: event.summary,
-  });
-
   const existingFor = (input: RecordProofEventInput, existing: StoredEvent) => {
     if (existing.publicProjectId !== input.publicProjectId) {
       // Never returns the other project's event, and one proof cannot serve two projects.
@@ -144,7 +123,7 @@ export const createProofTrack = (options: ProofTrackOptions): ProofTrack => {
       throw new ProofTrackError("WRONG_CHAIN", `ARC events must use chain ID ${ARC_TESTNET_CHAIN_ID}.`);
     }
 
-    const referenceValue = normalizeReference(input.referenceType, input.referenceValue);
+    const referenceValue = normalizeReference(input.referenceType, input.referenceValue, input.ecosystem);
     const key = { referenceType: input.referenceType, referenceValue, eventType: input.eventType };
 
     const existing = await store.findByNaturalKey(key);
@@ -213,7 +192,7 @@ export const createProofTrack = (options: ProofTrackOptions): ProofTrack => {
       if (filter?.milestoneId !== undefined) {
         events = events.filter((e) => e.milestoneId === filter.milestoneId);
       }
-      return [...events].sort(compareEvents).map(toTimelineItem);
+      return [...events].sort(compareEvents).map((event) => toTimelineItem(event, explorerTemplates));
     },
 
     async verifyEvent(eventId, verifiers) {

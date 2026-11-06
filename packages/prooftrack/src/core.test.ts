@@ -2,7 +2,8 @@ import { FIXTURE_PROOF_EVENTS, PROOF_EVENT_TYPES, type ProofEventType } from "@t
 import { describe, expect, it, vi } from "vitest";
 import { createProofTrack, NO_VERIFIER_REASON, type ProofTrackOptions, verifierKey } from "./core.js";
 import { MOCK_InMemoryEventStore } from "./mocks.js";
-import { ALLOWED_COMBINATIONS } from "./rules.js";
+import { ALLOWED_COMBINATIONS, normalizeReference } from "./rules.js";
+import { ANCHOR_NOTE } from "./timeline.js";
 import { type ProofTrackErrorCode, ProofTrackError, type StoredEvent, type Verifier, type VerifierKey } from "./types.js";
 
 // All values are fake. No database or network is used here.
@@ -18,7 +19,7 @@ const setup = (options: Partial<ProofTrackOptions> = {}) => {
 };
 
 const referenceFor = (type: ProofEventType, unique = "1") =>
-  ALLOWED_COMBINATIONS[type].referenceType === "BLOCKCHAIN_TRANSACTION_HASH"
+  ALLOWED_COMBINATIONS[type].referenceType === "BLOCKCHAIN_TRANSACTION_HASH" || type === "EVIDENCE_ANCHORED"
     ? `0x${unique.padStart(64, "a")}`
     : `FIXTURE_ref_${unique}`;
 
@@ -585,5 +586,73 @@ describe("verifyProject", () => {
   it("does nothing for a project with no events", async () => {
     const { track } = setup();
     expect(await track.verifyProject(PROJECT, new Map())).toEqual([]);
+  });
+});
+
+describe("EVIDENCE_ANCHORED (R4)", () => {
+  const KEY = `0x${"e".repeat(64)}`;
+  const input = (over: object = {}) =>
+    inputFor("EVIDENCE_ANCHORED", { referenceValue: KEY, expected: { sourceEventId: "source" }, ...over });
+
+  it("is only allowed as ARKIV and STORAGE_REFERENCE", async () => {
+    expect(ALLOWED_COMBINATIONS.EVIDENCE_ANCHORED).toEqual({ ecosystem: "ARKIV", referenceType: "STORAGE_REFERENCE" });
+    const { track } = setup();
+    await expectError(track.recordEvent(input({ ecosystem: "ARC", chainId: 5042002 })), "REFERENCE_TYPE_MISMATCH");
+    await expectError(track.recordEvent(input({ referenceType: "BLOCKCHAIN_TRANSACTION_HASH" })), "REFERENCE_TYPE_MISMATCH");
+    await expectError(track.recordEvent(input({ referenceType: "INFERENCE_REQUEST_ID" })), "REFERENCE_TYPE_MISMATCH");
+  });
+
+  it("an Arkiv key cannot be recorded as anything else", async () => {
+    const { track } = setup();
+    await expectError(track.recordEvent(inputFor("EVALUATION_COMPLETED", { referenceValue: KEY })), "INVALID_REFERENCE");
+    await expectError(track.recordEvent(inputFor("MILESTONE_FUNDED", { ecosystem: "ARKIV", referenceType: "STORAGE_REFERENCE", referenceValue: KEY })), "REFERENCE_TYPE_MISMATCH");
+  });
+
+  it("stores the key lowercase, as a STORAGE_REFERENCE, starting PENDING", async () => {
+    const { track } = setup();
+    const event = await track.recordEvent(input({ referenceValue: KEY.toUpperCase().replace("0X", "0x") }));
+    expect(event).toMatchObject({ referenceValue: KEY, referenceType: "STORAGE_REFERENCE", verificationStatus: "PENDING", lastCheckedAt: null });
+  });
+
+  it.each([["0x1234"], ["e".repeat(64)], [`0x${"g".repeat(64)}`], [`0x${"e".repeat(65)}`], ["FIXTURE_key"], [""]])(
+    "rejects a malformed key: %s",
+    async (referenceValue) => {
+      const { track } = setup();
+      await expectError(track.recordEvent(input({ referenceValue })), "INVALID_REFERENCE");
+    },
+  );
+
+  it("a STORAGE_REFERENCE outside Arkiv still cannot look like a transaction hash", () => {
+    expect(() => normalizeReference("STORAGE_REFERENCE", KEY)).toThrow(ProofTrackError);
+    expect(() => normalizeReference("STORAGE_REFERENCE", KEY, "ZERO_G")).toThrow(ProofTrackError);
+    expect(normalizeReference("STORAGE_REFERENCE", KEY, "ARKIV")).toBe(KEY);
+  });
+
+  it("a caller cannot set a status through expected", async () => {
+    const { track } = setup();
+    await expectError(track.recordEvent(input({ expected: { verificationStatus: "VERIFIED" } })), "INVALID_INPUT");
+  });
+
+  it("its timeline item has the note and expiry; others do not; the note says it expires", async () => {
+    const { track } = setup();
+    await track.recordEvent(input({ expected: { sourceEventId: "source", anchorExpiresAt: "2099-01-01T00:00:00.000Z" } }));
+    await track.recordEvent(inputFor("MILESTONE_FUNDED", { occurredAt: "2026-01-02T00:00:00.000Z" }));
+    const [anchored, plain] = await track.getTimeline(PROJECT);
+    expect(anchored).toMatchObject({
+      type: "EVIDENCE_ANCHORED",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      note: "Public hash-only record on the Arkiv testnet. It expires.",
+      explorerUrl: null,
+    });
+    expect(ANCHOR_NOTE).not.toMatch(/permanent|immutable|forever/i);
+    expect(plain).not.toHaveProperty("note");
+    expect(plain).not.toHaveProperty("expiresAt");
+    expect(JSON.stringify(anchored)).not.toContain("sourceEventId");
+  });
+
+  it("expiresAt is null when unknown", async () => {
+    const { track } = setup();
+    await track.recordEvent(input());
+    expect((await track.getTimeline(PROJECT))[0]!.expiresAt).toBeNull();
   });
 });
