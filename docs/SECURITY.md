@@ -51,10 +51,10 @@ Severities are for the current state: no endpoint uses these tables yet. Reprodu
 
 | ID | Severity | Location | Evidence / repro | Impact | Suggested fix | Owner | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| SEC-001 | Medium | `apps/api/prisma/schema.prisma`, `User.walletAddress` | Created one wallet in lowercase and in uppercase: 2 `User` rows, no unique error | One wallet can hold two accounts, which can split ownership checks | Lowercase in one shared write path before every insert or lookup; `verify()` already returns lowercase | M2 | Open |
+| SEC-001 | Medium | `apps/api/prisma/schema.prisma`, `User.walletAddress` | Created one wallet in lowercase and in uppercase: 2 `User` rows, no unique error | One wallet can hold two accounts, which can split ownership checks | Lowercase in one shared write path before every insert or lookup; `verify()` already returns lowercase | M2 | Fixed by M2 in `apps/api/src/auth/users.ts`, with a test that fails if other source writes the field. The database itself still accepts mixed case. M5 to verify |
 | SEC-002 | Medium | `apps/api/prisma/schema.prisma`, `AgreementVersion` | `update` changed `agreementHash` from `FIXTURE_ORIGINAL` to `FIXTURE_CHANGED` with no error. Immutability is a comment only | An accepted agreement could be changed after both parties agreed | Allow only the two acceptance timestamps to be updated, ideally with a SQLite trigger in a migration | M2 | Open |
 | SEC-003 | Medium | `apps/api/prisma/schema.prisma`, `Milestone` | Created with `amountBaseUnits` `1.5`, `status` `NOT_A_STATUS`, `onchainMilestoneId` `FIXTURE-not-hex`: all accepted | Bad amounts or IDs could reach escrow logic or the UI | Validate at the API boundary with the `@trustora/shared` schemas; add a format check for `onchainMilestoneId` | M2 | Open |
-| SEC-004 | Low | `.gitignore` | `git check-ignore --no-index a.db-journal a.db-wal` matches neither | SQLite side files holding database content could be committed | Add `*.db-journal`, `*.db-wal`, `*.db-shm` | M2 | Open |
+| SEC-004 | Low | `.gitignore` | `git check-ignore --no-index a.db-journal a.db-wal` matches neither | SQLite side files holding database content could be committed | Add `*.db-journal`, `*.db-wal`, `*.db-shm` | M2 | Fixed by M2 in `.gitignore`. M5 to verify |
 
 ## Gates
 
@@ -70,8 +70,10 @@ Severities are for the current state: no endpoint uses these tables yet. Reprodu
 Part 1 tested the wallet auth verifier, upload validator and secret scanner in isolation. The following was not tested:
 
 - Everything in the `tests/security/README.md` checklist: contracts, 0G, Hedera, `/verify`, IDOR, prompt injection.
-- The verifier and validator wired into the API: no endpoint uses either yet, including rate limiting and request size limits.
-- A database-backed nonce store: only the in-memory store ran, so parallel single-use is proven for that store only.
+- The upload validator wired into the API: no endpoint uses it yet.
+- Rate limiting: there is none on the auth endpoints, and `/auth/nonce` is public and writes to the database.
+- Revoking a session: logout clears the browser's cookie, but a copied cookie stays valid until it expires, up to 24 hours.
+- Parallel single-use on any database except SQLite, which is the only one the database nonce store has run on.
 - Real browser wallets. Signatures came from viem test accounts. Smart-contract wallets (EIP-1271) are unsupported.
 - Malicious content inside text files or zip entries. The validator checks type and structure only: an allowed `.html` or `.js` can still hold a script, and a zip can hold an `.exe`. Anything serving uploads must not render or run them.
 - Other archive formats, such as `.tar.gz` inside a zip. Only nested zips are rejected.
