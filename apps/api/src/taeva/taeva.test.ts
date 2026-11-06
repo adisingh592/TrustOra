@@ -153,6 +153,28 @@ describe("TAEVA Algorithm Unit Tests", () => {
     expect(report.requestId).toBe("inf-req-99999");
     expect(report.overallStatus).toBe("PASS");
     expect(report.criteriaResults[0]?.advisoryNotes).toContain("external inference adapter");
+    expect(report.evaluationSource).toBe("ZERO_G_INFERENCE");
+    expect(report.isAI).toBe(true);
+  });
+
+  it("R2 honesty: never fabricates an inference ID or claims AI ran when no adapter is usable", async () => {
+    const report = await runTaevaEvaluation(baseInput);
+    expect(report.evaluationSource).toBe("DETERMINISTIC_HEURISTIC");
+    expect(report.isAI).toBe(false);
+    expect(report.evaluationNote).toMatch(/no ai model was used/i);
+    expect(report.requestId).toBe("");
+  });
+
+  it("R2 honesty: falls back honestly when the adapter is configured but unusable", async () => {
+    const unhealthy: EvaluationAdapter = {
+      health: async () => ({ status: "UNAVAILABLE", detail: "down", checkedAt: new Date().toISOString() }),
+      evaluate: async () => {
+        throw new Error("should never be called while unhealthy");
+      },
+    };
+    const report = await runTaevaEvaluation({ ...baseInput, evaluationAdapter: unhealthy });
+    expect(report.evaluationSource).toBe("DETERMINISTIC_HEURISTIC");
+    expect(report.isAI).toBe(false);
   });
 });
 
@@ -276,7 +298,7 @@ describe("TAEVA API Routes", () => {
     });
 
     const fileHash = "e".repeat(64);
-    await prisma.submission.create({
+    const submission = await prisma.submission.create({
       data: {
         milestoneId,
         freelancerId: freelancerUser.id,
@@ -289,7 +311,8 @@ describe("TAEVA API Routes", () => {
       },
     });
 
-    // Trigger TAEVA evaluation via POST
+    // Trigger TAEVA evaluation via POST. No evaluationAdapter is configured on this
+    // app, so this exercises the deterministic heuristic fallback only.
     const evalRes = await app.inject({
       method: "POST",
       url: `/projects/${project.id}/milestones/${milestoneId}/evaluate`,
@@ -303,14 +326,21 @@ describe("TAEVA API Routes", () => {
     expect(report.deterministicChecks.hashVerified).toBe(true);
     expect(report.deterministicChecks.agreementAccepted).toBe(true);
 
+    // R2 honesty: no AI ran, so the report must say so plainly, and no fabricated ID.
+    expect(report.evaluationSource).toBe("DETERMINISTIC_HEURISTIC");
+    expect(report.isAI).toBe(false);
+    expect(report.evaluationNote).toMatch(/no ai model was used/i);
+    expect(report.requestId).toBe("");
+
     // Verify Evaluation persisted in DB
     const savedEval = await prisma.evaluation.findFirst({
-      where: { requestId: report.requestId },
+      where: { submissionId: submission.id },
     });
     expect(savedEval).not.toBeNull();
     expect(savedEval?.provider).toBe("TAEVA");
 
-    // Verify ProofEvent created in ProofTrack
+    // R2 honesty: the deterministic fallback has no chain or inference evidence,
+    // so it must record NO ProofTrack event, VERIFIED or otherwise.
     const proofEvent = await prisma.proofEvent.findFirst({
       where: {
         publicProjectId: project.id,
@@ -318,9 +348,7 @@ describe("TAEVA API Routes", () => {
         referenceType: "INFERENCE_REQUEST_ID",
       },
     });
-    expect(proofEvent).not.toBeNull();
-    expect(proofEvent?.verificationStatus).toBe("VERIFIED");
-    expect(proofEvent?.ecosystem).toBe("ZERO_G");
+    expect(proofEvent).toBeNull();
 
     // Fetch evaluation via GET
     const getRes = await app.inject({
@@ -330,5 +358,86 @@ describe("TAEVA API Routes", () => {
     });
     expect(getRes.statusCode).toBe(200);
     expect(getRes.json().requestId).toBe(report.requestId);
+  });
+
+  it("records a VERIFIED ZERO_G ProofEvent only when a real 0G adapter actually produced the report", async () => {
+    const client = await signIn();
+    const freelancer = await signIn();
+    const mockAdapter: EvaluationAdapter = {
+      health: async () => ({ status: "CONNECTED", detail: "mock 0G", checkedAt: new Date().toISOString() }),
+      evaluate: async (): Promise<EvaluationResult> => ({
+        overall: "PASS",
+        criteria: [{ criterion: "C1", status: "PASS", evidence: "ok" }],
+        limitations: [],
+        suggestedRevisions: [],
+        criteriaVersion: "v1",
+        submissionHash: "f".repeat(64),
+        modelId: "mock-0g-v1",
+        promptHash: "p".repeat(64),
+        requestId: "inf-req-real-00001",
+        reportHash: "r".repeat(64),
+      }),
+    };
+    const realAdapterApp = buildApp({
+      config,
+      logger: false,
+      tokenAddress: FIXTURE_TOKEN,
+      now,
+      evaluationAdapter: mockAdapter,
+    });
+    await realAdapterApp.ready();
+
+    const projRes = await realAdapterApp.inject({
+      method: "POST",
+      url: "/projects",
+      cookies: client.cookie,
+      payload: {
+        title: "Test Project",
+        description: "Test Description",
+        freelancerWallet: freelancer.address,
+        arbiterWallet: walletOnly(),
+        milestones: [{ title: "M1", amount: "50000000", deadline: "2099-01-01T00:00:00.000Z", criteria: ["C1"] }],
+      },
+    });
+    const project = projRes.json();
+    const milestoneId = project.milestones[0].id;
+    await realAdapterApp.inject({ method: "POST", url: `/projects/${project.id}/agreement/accept`, cookies: client.cookie, payload: { version: 1 } });
+    await realAdapterApp.inject({ method: "POST", url: `/projects/${project.id}/agreement/accept`, cookies: freelancer.cookie, payload: { version: 1 } });
+
+    const agreementVersion = await prisma.agreementVersion.findFirstOrThrow({ where: { milestoneId, version: 1 } });
+    const freelancerUser = await prisma.user.findUniqueOrThrow({ where: { walletAddress: freelancer.address } });
+    await prisma.submission.create({
+      data: {
+        milestoneId,
+        freelancerId: freelancerUser.id,
+        agreementVersionId: agreementVersion.id,
+        privateFilePath: "/tmp/deliverable.zip",
+        fileHash: "f".repeat(64),
+        aiConsent: true,
+        aiConsentAt: new Date(),
+        status: "SUBMITTED",
+      },
+    });
+
+    const evalRes = await realAdapterApp.inject({
+      method: "POST",
+      url: `/projects/${project.id}/milestones/${milestoneId}/evaluate`,
+      cookies: client.cookie,
+    });
+    expect(evalRes.statusCode, evalRes.body).toBe(200);
+    const report = evalRes.json();
+    expect(report.evaluationSource).toBe("ZERO_G_INFERENCE");
+    expect(report.isAI).toBe(true);
+    expect(report.requestId).toBe("inf-req-real-00001");
+
+    const proofEvent = await prisma.proofEvent.findFirst({
+      where: { publicProjectId: project.id, eventType: "EVALUATION_COMPLETED", referenceType: "INFERENCE_REQUEST_ID" },
+    });
+    expect(proofEvent).not.toBeNull();
+    expect(proofEvent?.verificationStatus).toBe("VERIFIED");
+    expect(proofEvent?.ecosystem).toBe("ZERO_G");
+    expect(proofEvent?.referenceValue).toBe("inf-req-real-00001");
+
+    await realAdapterApp.close();
   });
 });

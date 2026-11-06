@@ -111,35 +111,39 @@ export const taevaRoutes = async (app: FastifyInstance, deps: TaevaRouteDeps) =>
         },
       });
 
-      // Record a ProofTrack event for evaluation completion (idempotent referenceType + referenceValue)
-      const existingProof = await prisma.proofEvent.findFirst({
-        where: {
-          referenceType: "INFERENCE_REQUEST_ID",
-          referenceValue: report.requestId,
-          eventType: "EVALUATION_COMPLETED",
-        },
-      });
-
-      if (!existingProof) {
-        await prisma.proofEvent.create({
-          data: {
-            publicProjectId,
-            milestoneId: milestone.id,
-            occurredAt: now(),
-            ecosystem: "ZERO_G",
-            network: "0G Galileo",
-            eventType: "EVALUATION_COMPLETED",
+      // R2: a ProofTrack event is only ever recorded when a real 0G adapter produced
+      // this report. The deterministic heuristic fallback has no chain or inference
+      // evidence to record, so it gets no ProofEvent, VERIFIED or otherwise.
+      if (report.evaluationSource === "ZERO_G_INFERENCE") {
+        const existingProof = await prisma.proofEvent.findFirst({
+          where: {
             referenceType: "INFERENCE_REQUEST_ID",
             referenceValue: report.requestId,
-            verificationStatus: "VERIFIED",
-            verifiedAt: now(),
-            summary: `TAEVA advisory evaluation completed with status ${report.overallStatus}`,
-            statusReason: report.explanation,
-            expectedJson: JSON.stringify({
-              deliverableSha256: submission.fileHash,
-            }),
+            eventType: "EVALUATION_COMPLETED",
           },
         });
+
+        if (!existingProof) {
+          await prisma.proofEvent.create({
+            data: {
+              publicProjectId,
+              milestoneId: milestone.id,
+              occurredAt: now(),
+              ecosystem: "ZERO_G",
+              network: "0G Galileo",
+              eventType: "EVALUATION_COMPLETED",
+              referenceType: "INFERENCE_REQUEST_ID",
+              referenceValue: report.requestId,
+              verificationStatus: "VERIFIED",
+              verifiedAt: now(),
+              summary: `TAEVA advisory evaluation completed with status ${report.overallStatus}`,
+              statusReason: report.explanation,
+              expectedJson: JSON.stringify({
+                deliverableSha256: submission.fileHash,
+              }),
+            },
+          });
+        }
       }
 
       return reply.code(200).send(report);

@@ -75,8 +75,9 @@ export const runTaevaEvaluation = async (input: TaevaInput): Promise<TaevaEvalua
 
   // 3. Criteria Assessment (Advisory)
   let criteriaResults: TaevaCriterionResult[] = [];
-  let requestId = `taeva-inf-${randomBytes(16).toString("hex")}`;
-
+  // No ID exists until a real adapter returns one: never fabricated, and this
+  // never reaches a ProofTrack event unless evaluationSource is ZERO_G_INFERENCE.
+  let requestId: string | null = null;
   let adapterUsable = false;
   if (input.evaluationAdapter) {
     try {
@@ -110,6 +111,14 @@ export const runTaevaEvaluation = async (input: TaevaInput): Promise<TaevaEvalua
       adapterUsable = false;
     }
   }
+
+  const evaluationSource: "DETERMINISTIC_HEURISTIC" | "ZERO_G_INFERENCE" = adapterUsable
+    ? "ZERO_G_INFERENCE"
+    : "DETERMINISTIC_HEURISTIC";
+  const isAI = evaluationSource === "ZERO_G_INFERENCE";
+  const evaluationNote = isAI
+    ? "This evaluation used a real 0G inference adapter."
+    : "No AI model was used. This is a deterministic heuristic check, not an AI evaluation.";
 
   if (!adapterUsable) {
     // Deterministic & Heuristic Fallback
@@ -174,6 +183,8 @@ export const runTaevaEvaluation = async (input: TaevaInput): Promise<TaevaEvalua
     evaluatedAt,
     explanation,
     requestId,
+    evaluationSource,
+    isAI,
   });
 
   const reportHash = sha256Hex(reportPayload);
@@ -193,7 +204,10 @@ export const runTaevaEvaluation = async (input: TaevaInput): Promise<TaevaEvalua
     isAdvisory: true,
     evaluatedAt,
     explanation,
-    requestId,
+    requestId: requestId ?? "",
     reportHash,
+    evaluationSource,
+    isAI,
+    evaluationNote,
   };
 };
