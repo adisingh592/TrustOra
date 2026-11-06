@@ -24,6 +24,7 @@ model User {
 
   clientProjects     Project[]    @relation("ProjectClient")
   freelancerProjects Project[]    @relation("ProjectFreelancer")
+  arbiterProjects    Project[]    @relation("ProjectArbiter")
   submissions        Submission[]
 }
 
@@ -48,15 +49,19 @@ model Project {
   description     String
   clientId        String
   freelancerId    String?
+  arbiterId       String?
+  /// A MilestoneStatus value: DRAFT until both parties accept, then AGREED.
   status          String
   createdAt       DateTime @default(now())
 
   client     User        @relation("ProjectClient", fields: [clientId], references: [id])
   freelancer User?       @relation("ProjectFreelancer", fields: [freelancerId], references: [id])
+  arbiter    User?       @relation("ProjectArbiter", fields: [arbiterId], references: [id])
   milestones Milestone[]
 
   @@index([clientId])
   @@index([freelancerId])
+  @@index([arbiterId])
 }
 
 model Milestone {
@@ -81,13 +86,17 @@ model Milestone {
   @@index([projectId])
 }
 
-/// Versions are immutable once created. To change the agreement, create a new
-/// version. Only clientAcceptedAt and freelancerAcceptedAt are set afterwards.
+/// Versions are immutable once created, enforced by database triggers. To change
+/// the agreement, create a new version. Only clientAcceptedAt and
+/// freelancerAcceptedAt are set afterwards, and only once.
+/// A project's version N is one row per milestone, with the same terms and hash.
+/// Prisma does not track triggers: if a later migration rebuilds this table, it
+/// must recreate them.
 model AgreementVersion {
   id                   String    @id @default(cuid())
   milestoneId          String
   version              Int
-  /// Canonical JSON.
+  /// Canonical JSON of the whole project's agreement terms.
   criteriaJson         String
   /// SHA-256 of the canonical JSON.
   agreementHash        String

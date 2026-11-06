@@ -15,13 +15,13 @@
     "@trustora/security": "workspace:*",
     "@trustora/shared": "workspace:*",
     "fastify": "^5.12.8",
+    "viem": "^2.57.16",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "prisma": "^6.19.3",
     "tsx": "^4.23.15",
-    "viem": "^2.57.16",
     "vitest": "^5.1.0"
   }
 }

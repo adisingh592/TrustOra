@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  AcceptAgreementBodySchema,
   AgentPaymentRequestSchema,
+  CreateProjectBodySchema,
   EvaluationResultSchema,
+  PositiveAmountSchema,
   ProofEventSchema,
+  PublicProjectIdSchema,
+  WalletAddressSchema,
 } from "./schemas.js";
 
 // Test inputs only. These values are not real chain or inference data.
@@ -103,5 +108,97 @@ describe("amounts", () => {
   it.each([[1500000], ["1.5"]])("rejects %s", (amount) => {
     const result = AgentPaymentRequestSchema.safeParse({ ...request, amount });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("project input schemas", () => {
+  const wallet = (digit: string) => `0x${digit.repeat(40)}`;
+  const milestone = {
+    title: "m1",
+    amount: "50000000",
+    deadline: "2099-01-01T00:00:00Z",
+    criteria: ["c1"],
+  };
+  const body = {
+    title: "t",
+    description: "d",
+    freelancerWallet: wallet("a"),
+    arbiterWallet: wallet("b"),
+    milestones: [milestone],
+  };
+
+  it("accepts a valid project and normalises the deadline", () => {
+    const parsed = CreateProjectBodySchema.parse(body);
+    expect(parsed.milestones[0]?.deadline).toBe("2099-01-01T00:00:00.000Z");
+  });
+
+  it.each([
+    ["0"],
+    ["-1"],
+    ["1.5"],
+    ["007"],
+    [""],
+    [" 1"],
+    ["1e6"],
+    ["0x10"],
+    ["1000000000000001"],
+    ["9".repeat(79)],
+    [1500000],
+  ])("rejects amount %s", (amount) => {
+    expect(PositiveAmountSchema.safeParse(amount).success).toBe(false);
+  });
+
+  it.each([["1"], ["50000000"], ["1000000000000000"]])("accepts amount %s", (amount) => {
+    expect(PositiveAmountSchema.safeParse(amount).success).toBe(true);
+  });
+
+  it("lowercases a valid wallet", () => {
+    const checksum = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed";
+    expect(WalletAddressSchema.parse(checksum)).toBe(checksum.toLowerCase());
+  });
+
+  it.each([
+    ["too short", "0x1234"],
+    ["not hex", `0x${"g".repeat(40)}`],
+    ["bad checksum", "0x5AAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"],
+    ["zero address", `0x${"0".repeat(40)}`],
+    ["not a string", 42],
+  ])("rejects a wallet: %s", (_label, value) => {
+    expect(WalletAddressSchema.safeParse(value).success).toBe(false);
+  });
+
+  it.each([
+    ["agreementHash"],
+    ["status"],
+    ["clientId"],
+    ["onchainMilestoneId"],
+  ])("rejects a client-supplied %s", (field) => {
+    expect(CreateProjectBodySchema.safeParse({ ...body, [field]: "x" }).success).toBe(false);
+    const inMilestone = { ...body, milestones: [{ ...milestone, [field]: "x" }] };
+    expect(CreateProjectBodySchema.safeParse(inMilestone).success).toBe(false);
+  });
+
+  it.each([
+    ["no milestones", { milestones: [] }],
+    ["empty title", { title: "   " }],
+    ["no criteria", { milestones: [{ ...milestone, criteria: [] }] }],
+    ["bad deadline", { milestones: [{ ...milestone, deadline: "tomorrow" }] }],
+  ])("rejects %s", (_label, change) => {
+    expect(CreateProjectBodySchema.safeParse({ ...body, ...change }).success).toBe(false);
+  });
+
+  it("accept body takes a positive whole version and nothing else", () => {
+    expect(AcceptAgreementBodySchema.safeParse({ version: 1 }).success).toBe(true);
+    for (const version of [0, -1, 1.5, "1", null]) {
+      expect(AcceptAgreementBodySchema.safeParse({ version }).success).toBe(false);
+    }
+    expect(AcceptAgreementBodySchema.safeParse({ version: 1, role: "client" }).success).toBe(false);
+  });
+
+  it("recognises only the real project ID format", () => {
+    expect(PublicProjectIdSchema.safeParse("TRU-PROJ-2026-0001042").success).toBe(true);
+    for (const id of ["TRU-PROJ-2026-104", "TRU-PROJ-2025-0001042", "x"]) {
+      expect(PublicProjectIdSchema.safeParse(id).success).toBe(false);
+    }
   });
 });

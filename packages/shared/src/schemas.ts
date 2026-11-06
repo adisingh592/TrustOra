@@ -1,3 +1,4 @@
+import { isAddress } from "viem";
 import { z } from "zod";
 import type {
   AgentPaymentRequest,
@@ -141,3 +142,63 @@ export const VerifiedSettlementSchema = z.object({
   verified: z.boolean(),
   network: z.string(),
 }) satisfies z.ZodType<VerifiedSettlement>;
+
+/** One billion USDC in base units (6 decimals). */
+export const MAX_AMOUNT_BASE_UNITS = 1_000_000_000_000_000n;
+
+/** Positive whole base units as a string, with no leading zeros. */
+export const PositiveAmountSchema = z
+  .string()
+  .regex(/^[1-9][0-9]{0,77}$/, "must be a positive whole number of base units, as a string")
+  .refine((value) => BigInt(value) <= MAX_AMOUNT_BASE_UNITS, "is above the maximum amount");
+
+const ZERO_ADDRESS = `0x${"0".repeat(40)}`;
+
+/** A valid address, including its checksum if mixed case. Output is lowercase. */
+export const WalletAddressSchema = z
+  .string()
+  .refine((value) => isAddress(value, { strict: true }), "must be a valid wallet address")
+  .transform((value) => value.toLowerCase())
+  .refine((value) => value !== ZERO_ADDRESS, "must not be the zero address");
+
+export const PublicProjectIdSchema = z.string().regex(/^TRU-PROJ-2026-[0-9]{7}$/);
+
+/** Output is always the same ISO form, so equal times hash the same. */
+const DeadlineSchema = z
+  .string()
+  .datetime({ message: "must be an ISO 8601 UTC time" })
+  .transform((value) => new Date(value).toISOString());
+
+const milestoneTerms = {
+  title: z.string().trim().min(1).max(200),
+  amount: PositiveAmountSchema,
+  deadline: DeadlineSchema,
+  criteria: z.array(z.string().trim().min(1).max(2000)).min(1).max(50),
+};
+
+// Strict: a client cannot send a hash, status, role or milestone key of its own.
+export const CreateProjectBodySchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().min(1).max(10_000),
+    freelancerWallet: WalletAddressSchema,
+    arbiterWallet: WalletAddressSchema,
+    milestones: z.array(z.object(milestoneTerms).strict()).min(1).max(50),
+  })
+  .strict();
+export type CreateProjectBody = z.infer<typeof CreateProjectBodySchema>;
+
+export const ProposeVersionBodySchema = z
+  .object({
+    milestones: z
+      .array(z.object({ id: z.string().min(1).max(100), ...milestoneTerms }).strict())
+      .min(1)
+      .max(50),
+  })
+  .strict();
+export type ProposeVersionBody = z.infer<typeof ProposeVersionBodySchema>;
+
+export const AcceptAgreementBodySchema = z
+  .object({ version: z.number().int().positive() })
+  .strict();
+export type AcceptAgreementBody = z.infer<typeof AcceptAgreementBodySchema>;
