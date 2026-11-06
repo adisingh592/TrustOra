@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 // Runs the real script in a temporary Git repo. Every "secret" is random and
 // generated here, so nothing that looks like a secret is committed in this file.
 const here = dirname(fileURLToPath(import.meta.url));
-const script = join(here, "..", "..", "scripts", "secret-scan.mjs");
+const script = join(here, "..", "..", "..", "scripts", "secret-scan.mjs");
 
 let repo: string;
 
@@ -175,7 +175,7 @@ describe("secret scan: history", () => {
   });
 
   it("this repository scans clean, in both modes", () => {
-    const repoRoot = join(here, "..", "..");
+    const repoRoot = join(here, "..", "..", "..");
     for (const args of [[], ["--history"]]) {
       const result = spawnSync(process.execPath, [script, ...args], {
         cwd: repoRoot,

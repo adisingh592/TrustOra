@@ -102,7 +102,7 @@ export const buildApp = (options: BuildAppOptions = {}) => {
     }
   });
 
-  const webIndexPath = join(dirname(fileURLToPath(import.meta.url)), "../../web/index.html");
+  const webIndexPath = join(dirname(fileURLToPath(import.meta.url)), "../../web-test-ui/index.html");
   app.get("/", async (_request, reply) => {
     if (existsSync(webIndexPath)) {
       return reply.type("text/html").send(readFileSync(webIndexPath, "utf-8"));

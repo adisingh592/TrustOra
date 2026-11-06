@@ -15,7 +15,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  apps/api:
+  api:
     dependencies:
       '@fastify/cookie':
         specifier: ^11.1.5
@@ -31,16 +31,16 @@ importers:
         version: 6.19.3(prisma@6.19.3(typescript@7.0.2))(typescript@7.0.2)
       '@trustora/arkiv':
         specifier: workspace:*
-        version: link:../../packages/arkiv
+        version: link:../arkiv
       '@trustora/prooftrack':
         specifier: workspace:*
-        version: link:../../packages/prooftrack
+        version: link:../prooftrack
       '@trustora/security':
         specifier: workspace:*
-        version: link:../../packages/security
+        version: link:../security
       '@trustora/shared':
         specifier: workspace:*
-        version: link:../../packages/shared
+        version: link:../shared
       fastify:
         specifier: ^5.12.8
         version: 5.12.8
@@ -64,11 +64,7 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
-  apps/web: {}
-
-  packages/arc: {}
-
-  packages/arkiv:
+  arkiv:
     dependencies:
       '@arkiv-network/sdk':
         specifier: ^1.0.1
@@ -90,11 +86,7 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
-  packages/evaluation: {}
-
-  packages/og: {}
-
-  packages/prooftrack:
+  prooftrack:
     dependencies:
       '@trustora/shared':
         specifier: workspace:*
@@ -107,7 +99,7 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
-  packages/security:
+  security:
     dependencies:
       '@trustora/shared':
         specifier: workspace:*
@@ -123,7 +115,7 @@ importers:
         specifier: ^26.6.6
         version: 26.6.6
 
-  packages/shared:
+  shared:
     dependencies:
       viem:
         specifier: ^2.57.16
@@ -136,11 +128,11 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
-  tests/security:
+  tests-security:
     dependencies:
       '@trustora/security':
         specifier: workspace:*
-        version: link:../../packages/security
+        version: link:../security
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -154,6 +146,8 @@ importers:
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  web-test-ui: {}
 
 packages:
 
