@@ -1,6 +1,7 @@
 import cookie from "@fastify/cookie";
+import { createArkivAdapterFromEnv, loadArkivConfig } from "@trustora/arkiv";
 import { createWalletAuthVerifier } from "@trustora/security";
-import type { EscrowAdapter, EvaluationAdapter } from "@trustora/shared";
+import type { AnchorAdapter, EscrowAdapter, EvaluationAdapter } from "@trustora/shared";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { type AuthConfig, loadAuthConfig } from "./auth/config.js";
 import { createPrismaNonceStore } from "./auth/nonceStore.js";
@@ -9,6 +10,7 @@ import { createSessionCodec } from "./auth/session.js";
 import { prisma } from "./db.js";
 import { loadTokenAddress } from "./projects/config.js";
 import { projectRoutes } from "./projects/routes.js";
+import { anchorRoutes } from "./prooftrack/anchorRoutes.js";
 import { proofTrackRoutes } from "./prooftrack/routes.js";
 import { scopeGuardRoutes } from "./scopeguard/routes.js";
 import { taevaRoutes } from "./taeva/routes.js";
@@ -36,6 +38,8 @@ export interface BuildAppOptions {
   tokenAddress?: string | null;
   /** No real chain adapter exists yet, so ProofTrack events stay PENDING by default. */
   chainAdapter?: EscrowAdapter | null;
+  /** Defaults to what ARKIV_* configures. Null or undefined turns anchoring off. */
+  anchorAdapter?: AnchorAdapter | null;
   /** Optional evaluation adapter for TAEVA advisory AI assessment. */
   evaluationAdapter?: EvaluationAdapter | null;
   /** For tests. */
@@ -63,12 +67,23 @@ export const buildApp = (options: BuildAppOptions = {}) => {
   const requireUser = createRequireUser(sessions);
   app.register(authRoutes, { prisma, verifier, sessions, config, requireUser });
   app.register(projectRoutes, { prisma, requireUser, tokenAddress, now });
+  const anchorAdapter =
+    options.anchorAdapter !== undefined
+      ? (options.anchorAdapter ?? undefined)
+      : createArkivAdapterFromEnv();
+  const arkiv = loadArkivConfig();
+  if (options.anchorAdapter === undefined && arkiv.status === "not_configured") {
+    // A reason code only: never a key.
+    app.log.warn({ arkivReason: arkiv.reason }, "Arkiv is enabled but not configured, so it stays off");
+  }
   app.register(proofTrackRoutes, {
     prisma,
     requireUser,
     chainAdapter: options.chainAdapter ?? null,
+    anchorAdapter,
     now,
   });
+  app.register(anchorRoutes, { prisma, requireUser, anchorAdapter, now });
   app.register(scopeGuardRoutes, { prisma, requireUser });
   app.register(taevaRoutes, {
     prisma,

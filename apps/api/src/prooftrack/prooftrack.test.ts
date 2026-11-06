@@ -341,13 +341,15 @@ describe("no way to create an event", () => {
   });
 
   it("no production source imports a MOCK, or records an event from a route", () => {
-    const sources = (readdirSync(srcDir, { recursive: true }) as string[])
-      .filter((path) => path.endsWith(".ts") && !path.endsWith(".test.ts"))
-      .map((path) => readFileSync(join(srcDir, path), "utf8"));
-    expect(sources.length).toBeGreaterThan(0);
-    for (const source of sources) {
-      expect(source).not.toContain("MOCK_");
-      expect(source).not.toContain("recordEvent");
+    const paths = (readdirSync(srcDir, { recursive: true }) as string[])
+      .map((path) => path.replaceAll("\\", "/"))
+      .filter((path) => path.endsWith(".ts") && !path.endsWith(".test.ts"));
+    expect(paths.length).toBeGreaterThan(0);
+    for (const path of paths) {
+      const source = readFileSync(join(srcDir, path), "utf8");
+      expect(source, path).not.toContain("MOCK_");
+      // The anchor route is the one exception: it records only from a VERIFIED source event.
+      if (path !== "prooftrack/anchorRoutes.ts") expect(source, path).not.toContain("recordEvent");
     }
   });
 });

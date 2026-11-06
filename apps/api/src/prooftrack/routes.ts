@@ -1,11 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
+import { createArkivAnchorVerifier } from "@trustora/arkiv";
 import {
   createChainVerifier,
   createProofTrack,
   verifierKey,
   type Verifiers,
 } from "@trustora/prooftrack";
-import { type EscrowAdapter, PublicProjectIdSchema } from "@trustora/shared";
+import { type AnchorAdapter, type EscrowAdapter, PublicProjectIdSchema } from "@trustora/shared";
 import type { FastifyInstance, FastifyReply, preHandlerAsyncHookHandler } from "fastify";
 import { z } from "zod";
 import { sendError, sendInternalError, statusOf } from "../auth/routes.js";
@@ -34,15 +35,23 @@ export interface ProofTrackRouteDeps {
   requireUser: preHandlerAsyncHookHandler;
   /** Null until a real chain adapter is configured: events then stay PENDING. */
   chainAdapter: EscrowAdapter | null;
+  /** Undefined when Arkiv is disabled: anchor events then stay PENDING. */
+  anchorAdapter?: AnchorAdapter | undefined;
   now: () => Date;
 }
 
 /** Reads and re-checks only. There is no route that creates an event. */
 export const proofTrackRoutes = async (app: FastifyInstance, deps: ProofTrackRouteDeps) => {
-  const { prisma, requireUser, chainAdapter, now } = deps;
+  const { prisma, requireUser, chainAdapter, anchorAdapter, now } = deps;
   const store = createPrismaEventStore(prisma);
   const proofTrack = createProofTrack({ store, now });
-  const verifiers = buildVerifiers(chainAdapter);
+  const verifiers = new Map(buildVerifiers(chainAdapter));
+  if (anchorAdapter) {
+    verifiers.set(
+      verifierKey({ ecosystem: "ARKIV", referenceType: "STORAGE_REFERENCE" }),
+      createArkivAnchorVerifier({ adapter: anchorAdapter, getEvent: store.getById, now }),
+    );
+  }
   const lastRunAt = new Map<string, number>();
 
   // onRequest, so an unauthenticated caller learns nothing, even about bad input.

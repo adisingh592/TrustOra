@@ -1,0 +1,20 @@
+{
+  "name": "@trustora/arkiv",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "^1.0.1",
+    "@trustora/prooftrack": "workspace:*",
+    "@trustora/shared": "workspace:*",
+    "viem": "^2.57.16"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "vitest": "^5.1.0"
+  }
+}

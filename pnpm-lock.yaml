@@ -20,6 +20,9 @@ importers:
       '@prisma/client':
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@7.0.2))(typescript@7.0.2)
+      '@trustora/arkiv':
+        specifier: workspace:*
+        version: link:../../packages/arkiv
       '@trustora/prooftrack':
         specifier: workspace:*
         version: link:../../packages/prooftrack
@@ -53,6 +56,28 @@ importers:
         version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/arc: {}
+
+  packages/arkiv:
+    dependencies:
+      '@arkiv-network/sdk':
+        specifier: ^1.0.1
+        version: 1.0.1(typescript@7.0.2)(viem@2.57.16(typescript@7.0.2)(zod@3.25.76))
+      '@trustora/prooftrack':
+        specifier: workspace:*
+        version: link:../prooftrack
+      '@trustora/shared':
+        specifier: workspace:*
+        version: link:../shared
+      viem:
+        specifier: ^2.57.16
+        version: 2.57.16(typescript@7.0.2)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.6
+        version: 26.6.6
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@26.6.6)(vite@8.3.6(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/evaluation: {}
 
@@ -123,6 +148,16 @@ packages:
 
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
+
+  '@arkiv-network/sdk@1.0.1':
+    resolution: {integrity: sha512-DCOFdGunn4I5nYrvIV/YIkMCkLZM7EQNSyNPtqpmQkP2JzTEfRLBJleBSB2rokWMa833/9P8DMiwsEXACr3CUQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      typescript: '>=5.0.0'
+      viem: ^2.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@esbuild/aix-ppc64@0.28.2':
     resolution: {integrity: sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==}
@@ -1191,6 +1226,12 @@ packages:
 snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
+
+  '@arkiv-network/sdk@1.0.1(typescript@7.0.2)(viem@2.57.16(typescript@7.0.2)(zod@3.25.76))':
+    dependencies:
+      viem: 2.57.16(typescript@7.0.2)(zod@3.25.76)
+    optionalDependencies:
+      typescript: 7.0.2
 
   '@esbuild/aix-ppc64@0.28.2':
     optional: true
