@@ -213,6 +213,29 @@ export const AcceptAgreementBodySchema = z
   .strict();
 export type AcceptAgreementBody = z.infer<typeof AcceptAgreementBodySchema>;
 
+export const TxHashSchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{64}$/, "must be 0x followed by 64 hex characters");
+
+export const OnchainMilestoneIdSchema = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{64}$/, "must be 0x followed by 64 hex characters");
+
+export const FundingProofBodySchema = z
+  .object({ txHash: TxHashSchema })
+  .strict();
+export type FundingProofBody = z.infer<typeof FundingProofBodySchema>;
+
+export const SubmitProofBodySchema = z
+  .object({ txHash: TxHashSchema })
+  .strict();
+export type SubmitProofBody = z.infer<typeof SubmitProofBodySchema>;
+
+export const ReleaseProofBodySchema = z
+  .object({ txHash: TxHashSchema })
+  .strict();
+export type ReleaseProofBody = z.infer<typeof ReleaseProofBodySchema>;
+
 const HEX_32_BYTES = /^(0x)?[0-9a-fA-F]{64}$/;
 const Hash32Schema = z
   .string()

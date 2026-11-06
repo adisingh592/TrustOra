@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
+    "@fastify/cors": "^11.4.1",
+    "@fastify/multipart": "^10.1.8",
     "@prisma/client": "^6.19.3",
     "@trustora/arkiv": "workspace:*",
     "@trustora/prooftrack": "workspace:*",
