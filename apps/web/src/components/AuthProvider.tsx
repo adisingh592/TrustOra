@@ -59,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status === "authenticated" && address && sessionAddress && address.toLowerCase() !== sessionAddress) {
+      setSessionAddress(null);
+      setAccountRole(null);
+      setStatus("anonymous");
       void signOut();
     }
   }, [address, sessionAddress, status]);
