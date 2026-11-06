@@ -42,7 +42,11 @@ importers:
 
   packages/prooftrack: {}
 
-  packages/security: {}
+  packages/security:
+    dependencies:
+      '@trustora/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/shared:
     dependencies:
