@@ -77,5 +77,4 @@ Part 1 tested the wallet auth verifier, upload validator and secret scanner in i
 - Other archive formats, such as `.tar.gz` inside a zip. Only nested zips are rejected.
 - Upload validation time on the largest allowed zip. It runs synchronously, so a large file can briefly block the server.
 - Zip entry checksums (CRC-32), which are not verified.
-- The secret scanner's accuracy beyond its test cases: it is pattern-based, so it can miss secrets. Reflog entries and unreachable commits are not scanned.
-- The GitHub Actions workflow: it has not run on GitHub yet.
+- The secret scanner's accuracy beyond its test cases: it is pattern-based, so it can miss secrets. Reflog entries and unreachable commits are not scanned. `.secret-scan-baseline` lists reviewed false positives in commits that can no longer change.

@@ -71,7 +71,7 @@ describe("secret scan: finds and masks", () => {
     expectFinding("deploy.ts", `const privateKey = "${key}";\n`, /assigned to a key or secret/, key);
   });
 
-  it("PRIVATE_KEY= with a non-empty value", () => {
+  it("a private key name with a non-empty value", () => {
     const value = hex(8);
     expectFinding("notes.md", `ARC_DEPLOYER_PRIVATE_KEY=${value}\n`, /PRIVATE_KEY with a value/, value);
   });
@@ -104,7 +104,7 @@ describe("secret scan: finds and masks", () => {
   });
 
   it("a secret-looking NEXT_PUBLIC_ name, even with no value", () => {
-    write(".env.example", "NEXT_PUBLIC_ARC_DEPLOYER_PRIVATE_KEY=\n");
+    write(".env.example", "NEXT_PUBLIC_ARC_DEPLOYER_PRIVATE_KEY=\n"); // secret-scan:allow
     commitAll();
     const { code, output } = scan();
     expect(code).toBe(1);
@@ -153,6 +153,38 @@ describe("secret scan: history", () => {
     expect(output).not.toContain(key);
   });
 
+  it("baseline hides only the exact reviewed finding", () => {
+    write("oops.ts", `const value = "${hex(32)}";\n`);
+    commitAll();
+    const first = scan("--history");
+    expect(first.code, first.output).toBe(1);
+    const reviewed = first.output
+      .split("\n")
+      .find((line) => line.startsWith("FINDING  "))!
+      .replace("FINDING  ", "");
+    write(".secret-scan-baseline", `# reviewed\n${reviewed}\n`);
+    commitAll("add baseline");
+    const second = scan("--history");
+    expect(second.code, second.output).toBe(0);
+
+    write("again.ts", `const value = "${hex(32)}";\n`);
+    commitAll("a new secret is not hidden by the baseline");
+    const third = scan("--history");
+    expect(third.code, third.output).toBe(1);
+    expect(third.output).toMatch(/again\.ts/);
+  });
+
+  it("this repository scans clean, in both modes", () => {
+    const repoRoot = join(here, "..", "..");
+    for (const args of [[], ["--history"]]) {
+      const result = spawnSync(process.execPath, [script, ...args], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      });
+      expect(result.status, result.stdout).toBe(0);
+    }
+  });
+
   it("reports a clean history as clean", () => {
     const { code, output } = scan("--history");
     expect(code, output).toBe(0);
@@ -179,7 +211,7 @@ describe("secret scan: staged", () => {
 
 describe("secret scan: does not flag", () => {
   it.each([
-    ["empty env names", ".env.example", "ARC_DEPLOYER_PRIVATE_KEY=\nHEDERA_AGENT_PRIVATE_KEY=\nDATABASE_URL=\n"],
+    ["empty env names", ".env.example", "ARC_DEPLOYER_PRIVATE_KEY=\nHEDERA_AGENT_PRIVATE_KEY=\nDATABASE_URL=\n"], // secret-scan:allow
     ["all-zero placeholder hash", "a.ts", `const zero = "0x${"0".repeat(64)}";\n`],
     ["a 0x hash in ordinary code", "a.ts", `const txHash = "0x${hex(32)}";\n`],
     ["an env reference", "a.ts", "const k = PRIVATE_KEY = process.env.KEY;\n"],

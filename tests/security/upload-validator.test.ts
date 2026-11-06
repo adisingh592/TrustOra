@@ -356,8 +356,8 @@ describe("accepted files", () => {
     const value = await validate("notes.txt", text("hello"), "text/plain");
     expect(value).toEqual({
       ok: true,
-      // Published SHA-256 test value for "hello". secret-scan:allow
-      sha256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      // Published SHA-256 test value for "hello".
+      sha256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", // secret-scan:allow
       detectedType: "text/plain; charset=utf-8",
       size: 5,
     });

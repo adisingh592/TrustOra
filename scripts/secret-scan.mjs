@@ -11,7 +11,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const SKIPPED_FILES = /(^|\/)pnpm-lock\.yaml$/;
+const BASELINE_FILE = ".secret-scan-baseline";
+const SKIPPED_FILES = /(^|\/)(pnpm-lock\.yaml|\.secret-scan-baseline)$/;
 const ENV_LIKE_FILE = /(^|\/)\.env(\.[^/]*)?$|\.env$/;
 const SENSITIVE_FILE = /(^|\/)\.env(\.[^/]*)?$|\.(pem|key|p12|pfx|db)$/;
 const ENV_TEMPLATE = /(^|\/)\.env\.example$/;
@@ -153,7 +154,24 @@ const scanStaged = (root, findings) => {
   return scanFiles(paths, (path) => git(["show", `:${path}`], root), findings);
 };
 
+// Reviewed false positives in commits that can no longer change. Each line is
+// the exact text of a finding: rule, commit and path, and masked value.
+const readBaseline = (root) => {
+  try {
+    return new Set(
+      readFileSync(join(root, BASELINE_FILE), "utf8")
+        .split(/\r?\n/)
+        .filter((line) => line && !line.startsWith("#")),
+    );
+  } catch {
+    return new Set();
+  }
+};
+
+const formatFinding = ({ rule, where, masked }) => `${rule}  ${where}  ${masked}`;
+
 const scanHistory = (root, findings) => {
+  const baseline = readBaseline(root);
   const log = git(
     ["log", "--all", "-m", "-p", "--no-color", "--no-ext-diff", "--no-textconv", "--unified=0"],
     root,
@@ -168,7 +186,9 @@ const scanHistory = (root, findings) => {
     const key = `${finding.rule}|${where}|${finding.masked}`;
     if (!seen.has(key)) {
       seen.add(key);
-      findings.push({ ...finding, where });
+      if (!baseline.has(formatFinding({ ...finding, where }))) {
+        findings.push({ ...finding, where });
+      }
     }
   };
 
@@ -218,8 +238,8 @@ const main = () => {
   const scan = { history: scanHistory, staged: scanStaged, tracked: scanTracked }[mode];
   const scanned = scan(root, findings);
 
-  for (const { rule, where, masked } of findings) {
-    console.log(`FINDING  ${rule}  ${where}  ${masked}`);
+  for (const finding of findings) {
+    console.log(`FINDING  ${formatFinding(finding)}`);
   }
   console.log(`Secret scan (${mode}): scanned ${scanned}, ${findings.length} findings`);
   if (findings.length > 0) {
