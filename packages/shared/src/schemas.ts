@@ -292,6 +292,10 @@ export type AnchorPayload = z.output<typeof AnchorPayloadSchema>;
 /* TAEVA (Trustora Adaptive Evidence Verification Algorithm) Schemas          */
 /* -------------------------------------------------------------------------- */
 
+export const EVALUATION_SOURCES = ["DETERMINISTIC_HEURISTIC", "ZERO_G_INFERENCE"] as const;
+export const EvaluationSourceSchema = z.enum(EVALUATION_SOURCES);
+export type EvaluationSource = z.infer<typeof EvaluationSourceSchema>;
+
 export const TaevaCriterionResultSchema = z
   .object({
     criterion: z.string().trim().min(1),
@@ -320,6 +324,12 @@ export const TaevaEvaluationReportSchema = z
     explanation: z.string(),
     requestId: z.string(),
     reportHash: z.string(),
+    /** DETERMINISTIC_HEURISTIC unless a real 0G adapter produced this report. */
+    evaluationSource: EvaluationSourceSchema,
+    /** True only when evaluationSource is ZERO_G_INFERENCE. */
+    isAI: z.boolean(),
+    /** Plain-language note on which path produced this report. */
+    evaluationNote: z.string(),
   })
   .strict();
 export type TaevaEvaluationReport = z.infer<typeof TaevaEvaluationReportSchema>;

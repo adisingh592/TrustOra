@@ -364,6 +364,9 @@ describe("TAEVA, ScopeGuard, TrustShield & Unified Trust Report schemas", () => 
     explanation: "Deliverable satisfies all deterministic and advisory criteria.",
     requestId: "req-12345",
     reportHash: "b".repeat(64),
+    evaluationSource: "ZERO_G_INFERENCE",
+    isAI: true,
+    evaluationNote: "This evaluation used a real 0G inference adapter.",
   };
 
   const scopeGuardReport = {
