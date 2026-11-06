@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { authErrorResponse, requireSession } from "@/lib/session";
+import { rolesOf } from "@/lib/authz";
+import { getEscrowAddress } from "@/lib/arc";
+
+export const dynamic = "force-dynamic";
+
+/** Project detail, visible only to its participants (anyone else gets 404, so existence is not leaked). */
+export async function GET(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const { address } = await requireSession(req);
+    const project = await prisma.project.findUnique({
+      where: { id: params.id },
+      include: {
+        agreementVersions: { orderBy: { versionNumber: "desc" } },
+        milestones: {
+          orderBy: { milestoneIndex: "asc" },
+          include: {
+            submissions: {
+              orderBy: { version: "desc" },
+              include: { evaluations: { orderBy: { createdAt: "desc" }, include: { agentPayments: true } } },
+            },
+          },
+        },
+        proofTrackEvents: { orderBy: { sequence: "asc" } },
+      },
+    });
+
+    const roles = project ? rolesOf(address, project) : [];
+    if (!project || roles.length === 0) {
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      project,
+      viewer: { address, roles },
+      // Public chain configuration the browser needs to build transactions. No secrets.
+      chain: { escrowAddress: getEscrowAddress() },
+    });
+  } catch (error) {
+    const auth = authErrorResponse(error);
+    if (auth) return auth;
+    console.error("get project error", error);
+    return NextResponse.json({ success: false, error: "Failed to fetch project" }, { status: 500 });
+  }
+}

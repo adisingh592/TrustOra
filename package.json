@@ -1,0 +1,27 @@
+{
+  "name": "trustora",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TRUSTORA — Programmable Trust Infrastructure for Human and AI-Driven Work",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json node node_modules/tsx/dist/cli.mjs --test packages/evaluation/test/*.test.ts packages/og/test/*.test.ts packages/hedera/test/*.test.ts packages/prooftrack/test/*.test.ts packages/contracts/test/arcConfig.test.ts packages/contracts/test/escrowAbi.test.ts packages/contracts/test/deployPreflight.test.ts apps/web/test/*.test.ts && (cd packages/contracts && npx hardhat test test/TrustoraEscrow.test.js)",
+    "test:unit": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json node node_modules/tsx/dist/cli.mjs --test packages/evaluation/test/*.test.ts packages/og/test/*.test.ts packages/hedera/test/*.test.ts packages/prooftrack/test/*.test.ts packages/contracts/test/arcConfig.test.ts packages/contracts/test/escrowAbi.test.ts packages/contracts/test/deployPreflight.test.ts apps/web/test/*.test.ts",
+    "test:contracts": "cd packages/contracts && npx hardhat test test/TrustoraEscrow.test.js",
+    "compile:contracts": "cd packages/contracts && npx hardhat compile",
+    "dev": "cd apps/web && npm run dev",
+    "build": "cd apps/web && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "tsx": "^4.15.5",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}
+
