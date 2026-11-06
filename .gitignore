@@ -6,3 +6,6 @@ dist
 *.pem
 *.key
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
