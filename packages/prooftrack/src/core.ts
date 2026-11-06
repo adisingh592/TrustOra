@@ -6,11 +6,13 @@ import {
   type VerificationStatus,
 } from "@trustora/shared";
 import { ALLOWED_COMBINATIONS, EVENT_SUMMARIES, normalizeReference } from "./rules.js";
+import { compareEvents } from "./ordering.js";
 import {
   DuplicateEventError,
   type EventStore,
   ProofTrackError,
   type StoredEvent,
+  type TimelineFilter,
   type TimelineItem,
   type VerificationUpdate,
   type VerifierKey,
@@ -43,7 +45,7 @@ export interface ProofTrackOptions {
 
 export interface ProofTrack {
   recordEvent(input: unknown): Promise<StoredEvent>;
-  getTimeline(publicProjectId: string): Promise<TimelineItem[]>;
+  getTimeline(publicProjectId: string, filter?: TimelineFilter): Promise<TimelineItem[]>;
   verifyEvent(eventId: string, verifiers: Verifiers): Promise<StoredEvent>;
   verifyProject(publicProjectId: string, verifiers: Verifiers): Promise<StoredEvent[]>;
 }

@@ -60,12 +60,16 @@ export interface EventStore {
   updateVerification(id: string, update: VerificationUpdate): Promise<StoredEvent>;
 }
 
-export type VerifierOutcome = "MATCH" | "MISMATCH" | "UNAVAILABLE";
+export type VerifierOutcome = "MATCH" | "MISMATCH" | "UNAVAILABLE" | "BLOCKED";
 
 export interface VerifierResult {
   outcome: VerifierOutcome;
   reason?: string;
   checkedAt: Date;
+}
+
+export interface TimelineFilter {
+  milestoneId?: string | null;
 }
 
 export type Verifier = (event: StoredEvent) => Promise<VerifierResult>;

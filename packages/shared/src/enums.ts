@@ -14,6 +14,7 @@ export const VERIFICATION_STATUSES = [
   "PENDING",
   "VERIFIED",
   "FAILED",
+  "BLOCKED",
   "UNAVAILABLE",
 ] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
