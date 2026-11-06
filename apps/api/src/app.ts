@@ -6,6 +6,8 @@ import { createPrismaNonceStore } from "./auth/nonceStore.js";
 import { authRoutes, createRequireUser } from "./auth/routes.js";
 import { createSessionCodec } from "./auth/session.js";
 import { prisma } from "./db.js";
+import { loadTokenAddress } from "./projects/config.js";
+import { projectRoutes } from "./projects/routes.js";
 
 export const LOG_REDACT_PATHS = [
   "req.headers.cookie",
@@ -24,6 +26,8 @@ const defaultLogger = (): FastifyServerOptions["logger"] =>
 export interface BuildAppOptions {
   config?: AuthConfig;
   logger?: FastifyServerOptions["logger"];
+  /** Defaults to ARC_TESTNET_USDC_ADDRESS. */
+  tokenAddress?: string | null;
   /** For tests. */
   now?: () => Date;
 }
@@ -31,6 +35,8 @@ export interface BuildAppOptions {
 export const buildApp = (options: BuildAppOptions = {}) => {
   const config = options.config ?? loadAuthConfig();
   const now = options.now ?? (() => new Date());
+  const tokenAddress =
+    options.tokenAddress !== undefined ? options.tokenAddress : loadTokenAddress();
 
   const app = Fastify({ logger: options.logger ?? defaultLogger() });
   app.decorateRequest("userId", null);
@@ -46,6 +52,7 @@ export const buildApp = (options: BuildAppOptions = {}) => {
   });
   const requireUser = createRequireUser(sessions);
   app.register(authRoutes, { prisma, verifier, sessions, config, requireUser });
+  app.register(projectRoutes, { prisma, requireUser, tokenAddress, now });
 
   return Object.assign(app, { requireUser });
 };

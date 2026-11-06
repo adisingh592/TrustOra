@@ -32,16 +32,16 @@ const VerifyBodySchema = z.object({
   signature: z.string(),
 });
 
-const sendError = (reply: FastifyReply, status: number, code: string, message: string) =>
+export const sendError = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.code(status).send({ error: { code, message } });
 
-const statusOf = (error: unknown) =>
+export const statusOf = (error: unknown) =>
   typeof (error as { statusCode?: unknown }).statusCode === "number"
     ? (error as { statusCode: number }).statusCode
     : 500;
 
 // Logs the error type and code only, so request data cannot reach the logs.
-const sendInternalError = (request: FastifyRequest, reply: FastifyReply, error: unknown) => {
+export const sendInternalError = (request: FastifyRequest, reply: FastifyReply, error: unknown) => {
   const { name, code } = error as { name?: string; code?: string };
   request.log.error({ errorName: name, errorCode: code }, "auth request failed");
   return sendError(reply, 500, "INTERNAL_ERROR", "Something went wrong. Please try again.");

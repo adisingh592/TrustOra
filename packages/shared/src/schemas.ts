@@ -150,7 +150,8 @@ export const MAX_AMOUNT_BASE_UNITS = 1_000_000_000_000_000n;
 export const PositiveAmountSchema = z
   .string()
   .regex(/^[1-9][0-9]{0,77}$/, "must be a positive whole number of base units, as a string")
-  .refine((value) => BigInt(value) <= MAX_AMOUNT_BASE_UNITS, "is above the maximum amount");
+  // pipe, so BigInt only ever sees a string that passed the format check.
+  .pipe(z.string().refine((value) => BigInt(value) <= MAX_AMOUNT_BASE_UNITS, "is above the maximum amount"));
 
 const ZERO_ADDRESS = `0x${"0".repeat(40)}`;
 
