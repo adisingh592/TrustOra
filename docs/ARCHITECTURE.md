@@ -3,6 +3,11 @@
 SQLite is the default database for the sprint.
 Use Postgres only if one is already running.
 
+## Milestone IDs
+
+`onchainMilestoneId` is an M2 decision: a 0x-prefixed 32-byte hex string, to be derived from the milestone id.
+M1 and M4 must use the same value.
+
 ## Folder ownership
 
 | Member | Owns |
