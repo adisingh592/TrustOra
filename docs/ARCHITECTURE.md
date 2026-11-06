@@ -11,4 +11,4 @@ Use Postgres only if one is already running.
 | M2 | `apps/api`, `packages/shared`, `packages/prooftrack` |
 | M3 | `packages/og`, `packages/evaluation` |
 | M4 | `apps/web`, `README.md` |
-| M5 | `packages/security` |
+| M5 | `packages/security`, `tests/security` |
