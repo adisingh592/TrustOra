@@ -12,6 +12,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
     "@prisma/client": "^6.19.3",
+    "@trustora/prooftrack": "workspace:*",
     "@trustora/security": "workspace:*",
     "@trustora/shared": "workspace:*",
     "fastify": "^5.12.8",
