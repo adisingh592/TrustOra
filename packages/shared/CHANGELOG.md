@@ -1,0 +1,1 @@
+- Added contract v3 enums, ProofEvent, adapter interfaces, zod schemas, labelled fixtures and the M2-DEFINED types.
