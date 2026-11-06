@@ -328,7 +328,7 @@ contract TrustoraEscrow is ReentrancyGuard, Pausable, Ownable {
         uint256 _milestoneId
     ) external projectExists(_projectId) onlyClient(_projectId) nonReentrant whenNotPaused {
         Milestone storage m = milestones[_projectId][_milestoneId];
-        if (m.state != MilestoneState.Submitted && m.state != MilestoneState.Funded) {
+        if (m.state != MilestoneState.Submitted) {
             revert InvalidStateTransition(m.state, MilestoneState.Released);
         }
 
@@ -468,4 +468,3 @@ contract TrustoraEscrow is ReentrancyGuard, Pausable, Ownable {
         _unpause();
     }
 }
-

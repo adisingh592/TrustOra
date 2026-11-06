@@ -6,7 +6,7 @@ import { handleRegisterMilestone } from "@/lib/escrow-db";
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string; milestoneId: string } }
+  { params }: { params: Promise<{ id: string; milestoneId: string }> }
 ) {
-  return handleRegisterMilestone(req, params);
+  return handleRegisterMilestone(req, await params);
 }

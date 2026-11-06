@@ -12,13 +12,14 @@ export const dynamic = "force-dynamic";
  * The role is derived from the session wallet and the project; any role/wallet in the body is ignored.
  * The client accepted when creating the project. Body: { signature }.
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await requireSession(req);
     const body = await req.json().catch(() => ({}));
 
     const project = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { agreementVersions: { orderBy: { versionNumber: "desc" }, take: 1 } },
     });
     const roles = project ? rolesOf(session.address, project) : [];

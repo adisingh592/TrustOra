@@ -4,8 +4,8 @@
  */
 
 export interface HederaPaymentPolicy {
-  maxPaymentHbar: number;       // Maximum allowed per single request (e.g. 5.0)
-  maxDailyBudgetHbar: number;   // Maximum total spend allowed per 24 hours (e.g. 25.0)
+  maxPaymentTinybars: bigint;   // Maximum allowed per single request
+  maxDailyBudgetTinybars: bigint; // Maximum total spend allowed per 24 hours
   allowedProviders: string[];   // Hostnames or Hedera account IDs allowed to receive payment
   allowedNetworks: string[];    // Permitted networks (e.g. ['hedera:testnet'])
   allowedAssets: string[];      // Permitted assets (e.g. ['0.0.0'] for native HBAR)
@@ -16,7 +16,10 @@ export interface X402Challenge {
   network: string;              // e.g. "hedera:testnet"
   asset: string;                // e.g. "0.0.0"
   recipient: string;            // Hedera Account ID, e.g. "0.0.482910"
-  amountHbar: number;           // Amount requested in HBAR
+  /** Decimal HBAR amount retained for display/backward compatibility. */
+  amountHbar: number | string;
+  /** Exact x402 amount in tinybars, when supplied by a v2 challenge. */
+  amountTinybars?: bigint;
   resourceId: string;           // Target service or deliverable ID
   facilitatorUrl?: string;
 }
@@ -37,7 +40,8 @@ export interface AuditLogEntry {
 export interface AgentPaymentResult {
   status: PaymentExecutionStatus;
   txId: string | null;
-  amountHbar: number;
+  amountHbar: number | string;
+  amountTinybars?: string;
   recipient: string;
   timestamp: string;
   hashscanUrl: string | null;
@@ -52,4 +56,3 @@ export interface SettlementVerification {
   statusString?: string;
   error?: string;
 }
-

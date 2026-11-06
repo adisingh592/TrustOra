@@ -4,8 +4,8 @@ const nextConfig = {
   experimental: {
     // Shared workspace packages (../../packages/*) live outside apps/web and must be transpiled.
     externalDir: true,
-    serverComponentsExternalPackages: ["@prisma/client", "prisma"],
   },
+  serverExternalPackages: ["@prisma/client", "prisma"],
   webpack: (config) => {
     config.externals.push("pino-pretty", "lokijs", "encoding");
     return config;

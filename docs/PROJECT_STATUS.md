@@ -1,49 +1,28 @@
-# TRUSTORA — Project Status
+# TRUSTORA project status
 
-**Tagline:** Trust Every Transaction. Secure Every Promise.  
-**Product Positioning:** Programmable trust infrastructure for human and AI-driven work combining smart-contract escrow, USDC milestone payments, AI-assisted deliverable evaluation, autonomous AI-agent payments, and independently verifiable project evidence.  
-**Submission Target:** ETHGlobal Mumbai 2026 (November 7, 2026)  
-**Current Date:** November 6, 2026
+**Status date:** 2026-11-06
+**Release posture:** Demonstrable local prototype; not a production release.
 
----
+TRUSTORA coordinates client/freelancer agreements, milestone escrow, optional AI-assisted evaluation, and evidence records. Permissions are derived from the authenticated wallet and persisted project roles. AI evaluation is advisory and cannot release funds.
 
-## 1. Executive Summary
+## Capability status
 
-TRUSTORA solves the breakdown of trust in freelance and autonomous AI work. By connecting:
-1. **Arc Testnet** for programmable USDC milestone escrow,
-2. **0G Private Computer / Inference Router** for tamper-evident deliverable evaluation against agreed criteria,
-3. **Hedera** for policy-constrained autonomous agent payments via x402, and
-4. **Trustora ProofTrack** for independent correlation of on-chain and off-chain lifecycle evidence,
+| Area | Implemented | Tested | Live verified | Limitation |
+| --- | --- | --- | --- | --- |
+| Wallet authentication and project roles | Nonce-based wallet signature/session, participant checks, SQLite fixed-window throttles on nonce issuance and authenticated mutations | Unit/API tests | No production identity service | Not an edge/network-wide limiter; forwarded-IP trust and load behavior need review |
+| Client/freelancer workflows | Project creation, invitations, agreement acceptance, submissions, revisions, disputes, role-specific views | Unit/API tests with mocked chain | No two-wallet live Arc run | Chain actions require configured deployed contract |
+| Arc escrow | Solidity escrow, deploy/preflight scripts, wallet transaction preparation, server receipt/state verification | 14 local Hardhat tests and API mocks | No escrow deployment or live transfer | Deployment/configuration is absent |
+| 0G evaluation | Router client and structured advisory evaluator | Mock provider tests | No live inference verified | Missing credentials/provider means `UNABLE_TO_ASSESS` |
+| Hedera x402 | Parsing, tinybar policy/verifier helpers, persistent budget reservation primitive | Unit tests with mocked responses | No | End-to-end x402/facilitator payment is not implemented; reservation is not part of a settled flow |
+| ProofTrack | Timeline/event correlation and Arc verification path | Unit/API tests | No public portal | Public verification portal is not implemented |
+| Data store | Prisma schema and SQLite development setup | API and database migration tests | No production database validation | Production operations/backup policy not established |
 
-TRUSTORA guarantees that funds are locked securely, evaluated objectively without AI being able to release funds autonomously, and settled transparently.
+## Release blockers and next work
 
----
+- Deploy and verify the escrow on Arc Testnet, then configure its address using local environment configuration.
+- Obtain 0G test credentials and perform a real, consented inference test; record no fabricated IDs.
+- Implement and independently review the complete Hedera x402 facilitator/payment flow before claiming payment capability.
+- Resolve the 49 findings from the full development/tooling dependency audit. The production-only audit currently reports zero findings; the remaining full-audit issues are concentrated in the Hardhat 2 toolchain and are not forced through a breaking upgrade here.
+- Establish production database operations, monitoring, trusted-proxy configuration, operational key management, and independent security review before production use.
 
-## 2. Component Status Matrix
-
-| Component | Network / Environment | Tech / Standard | Status | Notes |
-| :--- | :--- | :--- | :---: | :--- |
-| **Escrow Smart Contract** | Arc Testnet (Chain ID `5042002`) | Solidity 0.8.24, OpenZeppelin, SafeERC20 | [~] | `TrustoraEscrow.sol` designed; multi-milestone, USDC (6 decimals) |
-| **Arc Studio Workflow** | Arc Studio (`studio.arc.io`) | Web IDE / Compilation / Deploy | [~] | Workspace setup and deployment preparation |
-| **0G Compute Evaluation** | 0G Testnet | 0G Router (`router-api-testnet.integratenetwork.work/v1`) | [x] | Client and evaluator packages copied from existing work, tests passing |
-| **Hedera Agent Payments** | Hedera Testnet | x402 Protocol / HBAR micro-settlement | [~] | Agent policy engine, allowlist, budget caps, settlement verifier |
-| **ProofTrack Timeline** | Multi-ecosystem correlation | Application-level correlation engine | [~] | Schema defined: tx hashes, inference IDs, storage refs, settlements |
-| **Agreement Intelligence** | Hybrid (LLM + Rule Fallback) | Criteria draft & versioning | [~] | Structured acceptance criteria generation with version locking |
-| **Fullstack Web App** | Localhost / Vercel | Next.js App Router, Tailwind, TypeScript | [~] | Core web application with client & freelancer dashboards |
-| **Database & API** | PostgreSQL / SQLite (Prisma) | Prisma ORM, Server Actions / REST APIs | [~] | Relational models for users, projects, milestones, submissions, proofs |
-
----
-
-## 3. Active Phase
-
-**Current Phase:** PHASE 1 & 2 (Repository Inspection, Architecture Documentation, and Arc Escrow Contract Implementation).
-
----
-
-## 4. Immediate Blockers & Open Items
-
-- [ ] Arc Testnet faucet funding for deployer account.
-- [ ] Arc Studio project synchronization.
-- [ ] 0G router testnet endpoint live connectivity check (graceful fallback already implemented in evaluator).
-- [ ] Hedera testnet test credentials for live agent payment demonstrations.
-
+See [INTEGRATION_STATUS.md](./INTEGRATION_STATUS.md), [SECURITY.md](./SECURITY.md), and the root [README](../README.md) for tested setup and evidence levels.

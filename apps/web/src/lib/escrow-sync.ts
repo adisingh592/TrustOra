@@ -210,7 +210,11 @@ export async function verifyEscrowTx(
   }
   let expectedAmount: bigint;
   try {
-    expectedAmount = toUsdcBaseUnits(expected.amountUsdc);
+    expectedAmount = typeof expected.amountUsdc === "number"
+      ? toUsdcBaseUnits(expected.amountUsdc)
+      : /^\d+$/.test(expected.amountUsdc)
+        ? BigInt(expected.amountUsdc)
+        : toUsdcBaseUnits(expected.amountUsdc);
   } catch {
     throw new EscrowSyncError("AMOUNT_MISMATCH", "Milestone amount in the database is not a valid USDC amount");
   }
@@ -390,12 +394,21 @@ export async function verifyRegistrationTx(
   }
 
   if (isMilestone) {
-    if (!eq(String(args.criteriaHash), criteriaHashToBytes32(expected.criteriaHash!))) {
+    const amountUsdc = expected.amountUsdc;
+    const criteriaHash = expected.criteriaHash;
+    if (amountUsdc === undefined || criteriaHash === undefined) {
+      throw new EscrowSyncError("CRITERIA_MISMATCH", "Milestone registration needs criteria hash and amount");
+    }
+    if (!eq(String(args.criteriaHash), criteriaHashToBytes32(criteriaHash))) {
       throw new EscrowSyncError("CRITERIA_MISMATCH", "On-chain criteria hash differs from the locked agreement");
     }
     let expectedAmount: bigint;
     try {
-      expectedAmount = toUsdcBaseUnits(expected.amountUsdc!);
+      expectedAmount = typeof amountUsdc === "number"
+        ? toUsdcBaseUnits(amountUsdc)
+        : /^\d+$/.test(amountUsdc)
+          ? BigInt(amountUsdc)
+          : toUsdcBaseUnits(amountUsdc);
     } catch {
       throw new EscrowSyncError("AMOUNT_MISMATCH", "Milestone amount in the database is not a valid USDC amount");
     }
@@ -415,7 +428,7 @@ export async function verifyRegistrationTx(
 
 const NEXT_DB_STATES: Record<string, string[]> = {
   UNFUNDED: ["FUNDED"],
-  FUNDED: ["SUBMITTED", "RELEASED", "DISPUTED", "REFUNDED"],
+  FUNDED: ["SUBMITTED", "DISPUTED", "REFUNDED"],
   SUBMITTED: ["REVISION_REQUESTED", "RELEASED", "DISPUTED", "REFUNDED"],
   REVISION_REQUESTED: ["SUBMITTED", "DISPUTED", "REFUNDED"],
   DISPUTED: ["RELEASED", "REFUNDED"],

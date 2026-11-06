@@ -1,57 +1,34 @@
-# TRUSTORA — Arc Migration & Architecture Alignment
+# Arc integration and deployment status
 
-**Document Purpose:** Detail the transition from legacy Whitechain merchant checkout concepts to Arc Testnet smart-contract escrow as TRUSTORA's primary settlement layer.
+Arc is the intended escrow network. The repository contains a Solidity escrow contract and Arc Testnet configuration, but the contract has not been deployed/configured for this release. Local Hardhat tests use a mock ERC-20 and are not live testnet evidence.
 
----
+## Configured Arc Testnet values
 
-## 1. Why Arc Replaces Whitechain
+| Setting | Value |
+| --- | --- |
+| Chain | Arc Testnet |
+| Chain ID | `5042002` |
+| RPC | `https://rpc.testnet.arc.io` |
+| Explorer | `https://explorer.testnet.arc.io` |
+| USDC ERC-20 | `0x3600000000000000000000000000000000000000` |
+| USDC token decimals | 6 |
+| Native gas accounting | USDC with 18 decimals |
 
-In earlier iterations (e.g. legacy ProofHire blueprints), Whitechain testnet USDT was explored for simple merchant invoices. However, several critical technical limitations arose:
-1. **Lack of Conditional Escrow:** A merchant payment invoice only supports direct merchant checkout. Freelance trust requires **programmable multi-milestone escrow**, where capital is locked in custody pending deliverable verification, with dispute and refund paths.
-2. **Native USDC Gas & Ecosystem Fit:** Arc is engineered around Circle's USDC as native gas and institutional-grade settlement. This provides superior UX (no double-token confusion: gas is USDC, escrow is USDC).
-3. **Developer Experience & Tooling:** Arc Studio (`studio.arc.io`) and Arc Testnet (Chain ID `5042002`) offer native EVM compatibility, modern block explorers, and fast finality.
+## Implemented
 
-**Decision:** Whitechain has been completely decommissioned from the TRUSTORA codebase. All payment and custody logic is implemented natively on Arc Testnet via `TrustoraEscrow.sol`.
+- `TrustoraEscrow.sol` defines project/milestone registration, funding, deliverable hash anchoring, revision/dispute flow, client release, freelancer refund, and arbiter resolution.
+- Contract methods use integer token units. ERC-20 milestone amounts use six decimals; native gas is a separate 18-decimal balance.
+- The deployment preflight checks network, key format, configured USDC contract and decimals, RPC, and funding before deployment.
+- Application transaction preparation is client-side. Server routes independently verify transaction receipts, contract logs, actors, identifiers, and on-chain state before updating corresponding application records.
+- Local Hardhat tests cover contract transitions and authorization. API tests use mocked RPC/contract responses.
 
----
+## Not completed / not claimed
 
-## 2. Arc Testnet Configuration
+- No TRUSTORA escrow deployment address or deployment transaction is checked in.
+- No live project funding, release, refund, or dispute transaction was performed for this status.
+- Arc Studio workspace setup is not required by the source code and is not evidence of deployment.
+- The client is not a multisig. The contract owner is the arbiter and can pause; configure that trust role deliberately before any testnet deployment.
 
-```json
-{
-  "network": "Arc Testnet",
-  "chainId": 5042002,
-  "rpcUrl": "https://rpc.testnet.arc.io",
-  "explorerUrl": "https://explorer.testnet.arc.io",
-  "nativeCurrency": {
-    "name": "USDC",
-    "symbol": "USDC",
-    "decimals": 18
-  },
-  "usdcContractAddress": "0x3600000000000000000000000000000000000000",
-  "usdcDecimals": 6,
-  "faucetUrl": "https://faucet.circle.com",
-  "studioUrl": "https://studio.arc.io"
-}
-```
+## Deployment is an operator action
 
----
-
-## 3. Escrow Accounting Invariants
-
-* **Base Units:** USDC ERC-20 token balances on Arc operate with **6 decimals**.
-  * `1.00 USDC = 1,000,000 units`
-  * `500.00 USDC = 500,000,000 units`
-* **Zero Floating-Point Arithmetic:** All balances, milestones, refunds, and releases are processed as `uint256` in base units.
-* **Separation of Gas and Token Balances:**
-  * While Arc uses USDC as native gas, the escrow contract handles ERC-20 USDC via `IERC20.transferFrom` and `IERC20.transfer`. The user's wallet pays gas fees from their native balance, and deposits the exact milestone amount from their ERC-20 allowance.
-
----
-
-## 4. Migration Audit & Cleanup Verification
-
-- [x] Identified and removed `whitechain-dev` from `skills-lock.json`.
-- [x] Removed all Whitechain RPC references and USDT contract addresses.
-- [x] Replaced merchant invoice model with multi-milestone escrow state machine.
-- [x] Replaced payment receipt generation with ProofTrack on-chain transaction verifier querying `https://rpc.testnet.arc.io`.
-
+The scripts can deploy only when an operator explicitly invokes them with local configuration. Do not commit a private key. Review [DEPLOYMENT.md](./DEPLOYMENT.md), run the dry-run preflight first, and verify the deployed contract address and source before configuring the web application. Deployment and transactions were not run as part of this audit.

@@ -167,6 +167,16 @@ describe("TrustoraEscrow Smart Contract", function () {
       await escrow.connect(freelancer).submitMilestoneWork(PROJECT_ID, 1, DELIVERABLE_HASH, DELIVERABLE_URI);
     });
 
+    it("should reject release before the freelancer submits work", async function () {
+      const fundedProjectId = ethers.encodeBytes32String("TRU-PROJ-2026-002");
+      await escrow.connect(client).createProject(fundedProjectId, freelancer.address, arbiter.address);
+      await escrow.connect(client).addMilestone(fundedProjectId, CRITERIA_HASH, MILESTONE_AMOUNT);
+      await escrow.connect(client).fundMilestone(fundedProjectId, 1);
+      await expect(
+        escrow.connect(client).releaseMilestone(fundedProjectId, 1)
+      ).to.be.revertedWithCustomError(escrow, "InvalidStateTransition");
+    });
+
     it("CRITICAL: AI or unauthorized agent CANNOT release escrow funds", async function () {
       // An unauthorized agent / AI model attempting to call releaseMilestone must revert
       await expect(

@@ -6,8 +6,9 @@ import { authErrorResponse, requireSession } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 /** Assign or reassign the freelancer before agreement acceptance or any escrow registration/funding. */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { address } = await requireSession(req);
     const body = await req.json().catch(() => ({}));
     const candidate = body?.freelancerAddress;
@@ -17,7 +18,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const freelancerAddress = candidate.toLowerCase();
     const result = await prisma.$transaction(async (tx) => {
       const project = await tx.project.findUnique({
-        where: { id: params.id },
+        where: { id },
         include: { agreementVersions: { orderBy: { versionNumber: "desc" }, take: 1 }, milestones: true },
       });
       if (!project || project.clientAddress.toLowerCase() !== address) return { status: 404 as const, error: "Project not found" };

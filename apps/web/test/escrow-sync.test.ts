@@ -227,6 +227,7 @@ test("planDbTransition: terminal states and regressions are rejected", () => {
   assert.equal(isReachableDbState("UNFUNDED", "UNFUNDED"), false);
 });
 
+
 test("deriveProjectStatus", () => {
   assert.equal(deriveProjectStatus("AGREED", ["FUNDED"]), "FUNDED");
   assert.equal(deriveProjectStatus("FUNDED", ["SUBMITTED"]), "IN_PROGRESS");

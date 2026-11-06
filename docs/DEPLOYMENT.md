@@ -1,73 +1,54 @@
-# TRUSTORA: Arc Testnet deployment runbook
+# Local setup and Arc Testnet deployment runbook
 
-Everything here is safe to run in order. Each step that can fail does so **before** anything irreversible happens and says so.
-Nothing in this repo deploys or sends a transaction on its own.
+The commands below describe operator actions. They were not run as part of the release-readiness audit. No contract deployment or blockchain transaction is performed automatically by the application build.
 
-## 1. Environment variables
+## Requirements
 
-Names only. Put real values in the untracked `.env` files; never commit them.
+- Node.js 20.9+ and npm.
+- A local SQLite database managed by Prisma.
+- Arc Testnet wallet configuration only if an operator later chooses to deploy or transact.
 
-| File | Variable | Needed for | Notes |
-|---|---|---|---|
-| `packages/contracts/.env` | `DEPLOYER_PRIVATE_KEY` | deploying | 32-byte hex. A **throwaway testnet key**, never a real-funds key. Malformed values are ignored and never printed. |
-| | `ARC_RPC_URL` | optional | defaults to `https://rpc.testnet.arc.io` |
-| | `ARC_USDC_ADDRESS` | optional | defaults to Arc's official USDC `0x3600…0000`. Anything else is refused unless `ALLOW_CUSTOM_USDC=true`. |
-| `apps/web/.env` | `ESCROW_CONTRACT_ADDRESS` | all on-chain actions | set after deployment. Unset → the UI disables on-chain actions (nothing is simulated). |
-| | `ARC_RPC_URL` | optional | server-side receipt verification. The browser always uses the default public RPC. |
-| | `ZG_ROUTER_API_KEY` | AI evaluation | without it evaluation honestly returns `UNABLE_TO_ASSESS`. Optional: `ZG_ROUTER_BASE_URL`, `ZG_ROUTER_MODEL`, `ZG_ROUTER_TRUST_MODE`, `ZG_ROUTER_PROVIDER_ADDRESS`. Mainnet URLs are refused. |
+## Environment configuration
 
-Not needed: any session secret (sessions are random tokens stored hashed in SQLite), any `DATABASE_URL` (SQLite path is fixed in the schema), any Hedera variable (live Hedera payments are not implemented).
+Copy a safe example template if one is available, then add local values to ignored `.env` files. Never commit actual credentials. See the root README for variable names and scope.
 
-Arc facts (verified against docs.arc.io): chain `5042002`, RPC `https://rpc.testnet.arc.io`, explorer `https://explorer.testnet.arc.io`,
-USDC ERC-20 `0x3600000000000000000000000000000000000000` with **6** decimals; the native gas token is the same USDC with **18** decimals.
-Escrow amounts always use the 6-decimal ERC-20 interface.
+| Location | Variable | Purpose |
+| --- | --- | --- |
+| `packages/contracts/.env` | `DEPLOYER_PRIVATE_KEY` | Arc deployer key for explicit deployment commands only |
+| `packages/contracts/.env` | `ARC_RPC_URL` | Optional RPC override; defaults to Arc Testnet RPC |
+| `packages/contracts/.env` | `ARC_USDC_ADDRESS` | Optional token override, subject to deployment preflight checks |
+| `apps/web/.env` | `ESCROW_CONTRACT_ADDRESS` | Deployed escrow address; without it the app cannot perform escrow actions |
+| `apps/web/.env` | `ARC_RPC_URL` | Optional server-side read RPC override |
+| `apps/web/.env` | `ZG_ROUTER_API_KEY` | Optional 0G Router credential; absent/invalid provider results do not produce a fabricated evaluation |
+| `apps/web/.env` | `ZG_ROUTER_BASE_URL`, `ZG_ROUTER_MODEL`, `ZG_ROUTER_TRUST_MODE`, `ZG_ROUTER_PROVIDER_ADDRESS` | Optional router settings supported by the code |
 
-## 2. Update the database (once, before first run)
+Hedera payment environment variables do not enable live payment execution; that flow is not implemented. SQLite is the development database. No PostgreSQL deployment support is claimed here.
 
-The schema gained 4 nullable columns, 2 tables and 2 unique indexes. All additive. The script refuses any plan containing `DROP`/`DELETE`/rename,
-checks unique-index preconditions itself, makes a verified backup, and applies in one transaction.
-
-```bash
-npm run db:update -w @trustora/web            # DRY RUN: prints the plan, changes nothing
-# stop the dev server, then:
-npm run db:update:apply -w @trustora/web      # backup -> transactional apply -> verification
-```
-
-Backups land in `apps/web/prisma/backups/`. **To restore:** stop the app and copy the chosen backup over `apps/web/prisma/dev.db`.
-Do not use `prisma db push --accept-data-loss`; it disables the safety checks this script provides.
-
-## 3. Deploy the escrow
+## Install, database, and local app
 
 ```bash
-cd packages/contracts
-npm run compile && npx hardhat test test/TrustoraEscrow.test.js     # 14 tests
-# 1. put DEPLOYER_PRIVATE_KEY in packages/contracts/.env; fund that address at https://faucet.circle.com (gas is USDC)
-npm run deploy:arc:dry        # runs every check and stops: nothing is sent
-npm run deploy:arc            # the single deploy transaction, then read-only verification
+npm ci
+npm run db:update -w @trustora/web
+npm run dev
 ```
 
-The dry run and the real run stop with a message ending **"Nothing was sent."** if any of these fail:
-wrong network name, missing or malformed key, USDC address invalid or not the official one, RPC unreachable, RPC on the wrong chain,
-no contract at the USDC address, USDC not 6 decimals, gas cannot be estimated, or the wallet holds less than 1.5× the estimated cost.
+The database updater defaults to a dry run. Review its plan before using its explicit apply command. Do not run `prisma db push --accept-data-loss` against user data.
 
-After a successful deploy the script prints the contract address, verifies it on-chain (code present, wired to the expected USDC, owner is the
-deployer, not paused) and writes `packages/contracts/deployments/arcTestnet.json`.
+## Contract checks and optional deployment
 
-## 4. Connect the app
+```bash
+npm run compile:contracts
+npm run test:contracts
+```
 
-1. Add `ESCROW_CONTRACT_ADDRESS=<address>` to `apps/web/.env` and restart.
-2. `ESCROW_CONTRACT_ADDRESS=<address> npm run check:deployment -w @trustora/contracts`. It is read-only and needs no key.
-3. Open the dashboard: **System status** should show *Arc escrow contract: Configured*. Configured means "an address is set". Each transaction is still verified individually.
+For an operator-authorized testnet deployment only, review `packages/contracts/scripts/deploy.ts`, configure an isolated test wallet locally, run the deployment preflight/dry run, and inspect all checks before invoking `npm run deploy:arc -w @trustora/contracts`. This audit did not deploy or broadcast. Local Hardhat tests use a mock token and do not establish live network behavior.
 
-## 5. End-to-end rehearsal (two wallets + the deployer as arbiter)
+After an independently verified deployment, configure `ESCROW_CONTRACT_ADDRESS` in the local web environment and restart. The app's configured status means an address is present; it is not a substitute for independently verifying the deployed bytecode and constructor state.
 
-Client creates a project naming the freelancer → freelancer signs the agreement → client registers project and milestone on Arc →
-client approves USDC and funds → freelancer submits (hash anchored) → client optionally runs AI evaluation → client releases.
-Then repeat with a dispute resolved by the deployer wallet (the default arbiter).
+## Current deployment limitations
 
-## 6. Things to know
-
-- The contract **owner is the default arbiter and the only account that can pause** the escrow. That is a trust assumption; use a dedicated arbiter wallet for the demo if you want to avoid it.
-- Smart-contract wallets (account abstraction) are not supported: transactions must be sent directly to the escrow by an EOA.
-- AI evaluation reads at most 24,000 characters. Larger submissions are refused at upload so nothing is judged on a partial read.
-- `packages/contracts/hardhat.config.js` is a stale duplicate of `hardhat.config.cjs`. Hardhat loads the `.cjs` (it takes precedence), so the `.js` is inert, but it contains an unsafe fallback key and should be deleted: `rm packages/contracts/hardhat.config.js`.
+- No TRUSTORA escrow deployment is currently configured.
+- No live Arc transaction has been recorded by this release process.
+- 0G live inference has not been verified.
+- Hedera x402 settlement execution is not implemented.
+- Production database operations, monitoring, trusted-proxy configuration for application throttles, and incident response are not established.

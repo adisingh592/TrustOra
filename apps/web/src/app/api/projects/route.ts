@@ -25,7 +25,15 @@ export async function GET(req: Request) {
       },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json({ success: true, address, projects });
+    return NextResponse.json({
+      success: true,
+      address,
+      projects: projects.map((p) => ({
+        ...p,
+        budgetUsdc: Number(p.budgetUsdc) / 1_000_000,
+        milestones: p.milestones.map((m) => ({ ...m, amountUsdc: Number(m.amountUsdc) / 1_000_000 })),
+      })),
+    });
   } catch (error) {
     const auth = authErrorResponse(error);
     if (auth) return auth;
@@ -130,7 +138,7 @@ export async function POST(req: Request) {
             clientAddress: session.address,
             freelancerAddress: freelancer,
             arbiterAddress: arbiter,
-            budgetUsdc: Number(budgetUnits) / 1_000_000,
+            budgetUsdc: budgetUnits.toString(),
             status: "DRAFT",
             agreementVersions: {
               create: {
@@ -146,7 +154,7 @@ export async function POST(req: Request) {
                 milestoneIndex: i + 1,
                 title: m.title,
                 description: `Satisfies agreed criteria v1 (${agreement.criteriaHash.slice(0, 12)}…)`,
-                amountUsdc: Number(toUsdcBaseUnits(m.amount)) / 1_000_000,
+                amountUsdc: toUsdcBaseUnits(m.amount).toString(),
                 state: "UNFUNDED",
                 criteriaHash: agreement.criteriaHash,
               })),
@@ -171,7 +179,14 @@ export async function POST(req: Request) {
       verificationStatus: "PENDING",
     });
 
-    return NextResponse.json({ success: true, project }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      project: {
+        ...project,
+        budgetUsdc: Number(project.budgetUsdc) / 1_000_000,
+        milestones: project.milestones.map((m) => ({ ...m, amountUsdc: Number(m.amountUsdc) / 1_000_000 })),
+      },
+    }, { status: 201 });
   } catch (error) {
     const auth = authErrorResponse(error);
     if (auth) return auth;

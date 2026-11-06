@@ -23,7 +23,7 @@ export function getSystemStatus(env: Record<string, string | undefined> = proces
   const escrow = env.ESCROW_CONTRACT_ADDRESS?.trim();
   const arcEscrow: IntegrationStatus = !escrow
     ? { status: "NOT_CONFIGURED", detail: "The escrow contract is not deployed or configured on this server, so on-chain actions are disabled." }
-    : /^0x[0-9a-fA-F]{40}$/.test(escrow)
+    : /^0x[0-9a-fA-F]{40}$/.test(escrow) && !/^0x0{40}$/i.test(escrow)
       ? { status: "CONFIGURED", detail: "An escrow contract address is configured. Each transaction is still verified against Arc before it is recorded." }
       : { status: "BLOCKED", detail: "ESCROW_CONTRACT_ADDRESS is set but is not a valid address, so on-chain actions are disabled." };
 

@@ -12,10 +12,33 @@ export const SESSION_COOKIE = "trustora_session";
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class AuthError extends Error {
-  constructor(readonly status: 401 | 403, message: string) {
+  constructor(readonly status: 401 | 403 | 429, message: string) {
     super(message);
     this.name = "AuthError";
   }
+}
+
+export async function consumeRateLimit(key: string, limit: number, windowMs: number, now = Date.now()): Promise<void> {
+  if (!Number.isInteger(limit) || limit <= 0 || !Number.isInteger(windowMs) || windowMs <= 0) {
+    throw new Error("Invalid rate limit configuration");
+  }
+  const started = BigInt(now - (now % windowMs));
+  await prisma.$executeRaw`
+    INSERT INTO "RateLimitBucket" ("key", "windowStarted", "requestCount", "updatedAt")
+    VALUES (${key}, ${started}, 1, CURRENT_TIMESTAMP)
+    ON CONFLICT("key") DO UPDATE SET
+        "requestCount" = CASE
+          WHEN "RateLimitBucket"."windowStarted" <> ${started} THEN 1
+          ELSE "RateLimitBucket"."requestCount" + 1
+        END,
+        "windowStarted" = CASE
+          WHEN "RateLimitBucket"."windowStarted" <> ${started} THEN ${started}
+          ELSE "RateLimitBucket"."windowStarted"
+        END,
+        "updatedAt" = CURRENT_TIMESTAMP
+  `;
+  const row = await prisma.rateLimitBucket.findUnique({ where: { key }, select: { requestCount: true } });
+  if (!row || row.requestCount > limit) throw new AuthError(429, "Too many requests; try again later");
 }
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
@@ -94,6 +117,9 @@ export async function requireSession(req: Request): Promise<{ address: string }>
   }
   const session = await getSession(req);
   if (!session) throw new AuthError(401, "Authentication required: sign in with your wallet");
+  if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    await consumeRateLimit(`mutation:${session.address}`, 60, 60_000);
+  }
   return session;
 }
 

@@ -3,12 +3,13 @@ import {
   X402Challenge,
   AgentPaymentResult,
 } from "../../../../packages/hedera/src/index";
+import { reserveHederaSpend } from "./hedera-ledger";
 
 export async function triggerHederaAgentPayment(
   resourceId: string,
   serviceType: "SECURITY_SCAN" | "CODE_QUALITY" = "SECURITY_SCAN"
 ): Promise<AgentPaymentResult> {
-  const payer = new HederaAgentPayer();
+  const payer = new HederaAgentPayer({ spendLedger: { reserve: reserveHederaSpend } });
 
   const challenge: X402Challenge = {
     scheme: "exact",
@@ -22,4 +23,3 @@ export async function triggerHederaAgentPayment(
   const providerHost = "audit.trustora.network";
   return await payer.executeAutonomousPayment(challenge, providerHost);
 }
-

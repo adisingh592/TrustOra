@@ -7,7 +7,7 @@ import { handleEscrowTxRequest } from "@/lib/escrow-db";
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string; milestoneId: string } }
+  { params }: { params: Promise<{ id: string; milestoneId: string }> }
 ) {
-  return handleEscrowTxRequest(req, params, "revision");
+  return handleEscrowTxRequest(req, await params, "revision");
 }

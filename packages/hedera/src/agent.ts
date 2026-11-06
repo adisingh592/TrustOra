@@ -3,21 +3,19 @@
  * @description Bounded autonomous AI agent payment coordinator for x402 services.
  */
 
-import {
-  AgentPaymentResult,
-  AuditLogEntry,
-  HederaPaymentPolicy,
-  PaymentExecutionStatus,
-  X402Challenge,
-} from "./types";
-import { AgentPolicyEngine, DEFAULT_HEDERA_POLICY } from "./policy";
+import { AgentPaymentResult, AuditLogEntry, HederaPaymentPolicy, X402Challenge } from "./types";
+import { AgentPolicyEngine } from "./policy";
 import { HederaSettlementVerifier } from "./verifier";
+import { formatTinybars, parseHbarToTinybars } from "./units";
 
 export interface HederaAgentConfig {
   accountId?: string;
   privateKey?: string;
   policy?: Partial<HederaPaymentPolicy>;
   mirrorNodeUrl?: string;
+  spendLedger?: {
+    reserve: (amountTinybars: bigint, idempotencyKey: string) => Promise<{ allowed: boolean; reason?: string }>;
+  };
 }
 
 export class HederaAgentPayer {
@@ -25,12 +23,14 @@ export class HederaAgentPayer {
   private verifier: HederaSettlementVerifier;
   private accountId: string | null;
   private privateKey: string | null;
+  private readonly spendLedger: HederaAgentConfig["spendLedger"];
 
   constructor(config: HederaAgentConfig = {}) {
     this.policyEngine = new AgentPolicyEngine(config.policy);
     this.verifier = new HederaSettlementVerifier({ mirrorUrl: config.mirrorNodeUrl });
     this.accountId = config.accountId || process.env.HEDERA_ACCOUNT_ID || null;
     this.privateKey = config.privateKey || process.env.HEDERA_PRIVATE_KEY || null;
+    this.spendLedger = config.spendLedger;
   }
 
   /**
@@ -58,7 +58,10 @@ export class HederaAgentPayer {
       network: params.network,
       asset: params.asset || "0.0.0",
       recipient: params.recipient,
-      amountHbar: parseFloat(params.amount) || 0,
+      amountHbar: Number.isFinite(Number(params.amount)) ? Number(params.amount) : params.amount,
+      amountTinybars: (() => {
+        try { return parseHbarToTinybars(params.amount); } catch { return undefined; }
+      })(),
       resourceId: params.resource || "unspecified",
       facilitatorUrl: params.facilitator,
     };
@@ -112,6 +115,23 @@ export class HederaAgentPayer {
       };
     }
 
+    const amountTinybars = challenge.amountTinybars ?? (() => {
+      try { return parseHbarToTinybars(String(challenge.amountHbar)); } catch { return 0n; }
+    })();
+    if (amountTinybars <= 0n) {
+      return {
+        status: "REJECTED_POLICY",
+        txId: null,
+        amountHbar: challenge.amountHbar,
+        amountTinybars: "0",
+        recipient: challenge.recipient,
+        timestamp,
+        hashscanUrl: null,
+        rejectionReason: "INVALID_HBAR_AMOUNT",
+        auditLog,
+      };
+    }
+
     // 2. Credential verification (never fabricate transactions)
     if (!this.accountId || !this.privateKey) {
       auditLog.push({
@@ -127,10 +147,30 @@ export class HederaAgentPayer {
         status: "NOT_CONFIGURED",
         txId: null,
         amountHbar: challenge.amountHbar,
+        amountTinybars: amountTinybars.toString(),
         recipient: challenge.recipient,
         timestamp,
         hashscanUrl: null,
         rejectionReason: "HEDERA_KEYS_NOT_CONFIGURED",
+        auditLog,
+      };
+    }
+
+    if (!this.spendLedger) {
+      auditLog.push({
+        step: "PAYMENT_NOT_SUBMITTED",
+        timestamp: new Date().toISOString(),
+        details: { status: "NOT_CONFIGURED", message: "Persistent spend ledger is not configured." },
+      });
+      return {
+        status: "NOT_CONFIGURED",
+        txId: null,
+        amountHbar: challenge.amountHbar,
+        amountTinybars: amountTinybars.toString(),
+        recipient: challenge.recipient,
+        timestamp,
+        hashscanUrl: null,
+        rejectionReason: "PERSISTENT_SPEND_LEDGER_NOT_CONFIGURED",
         auditLog,
       };
     }
@@ -151,6 +191,7 @@ export class HederaAgentPayer {
       status: "NOT_CONFIGURED",
       txId: null,
       amountHbar: challenge.amountHbar,
+      amountTinybars: amountTinybars.toString(),
       recipient: challenge.recipient,
       timestamp,
       hashscanUrl: null,

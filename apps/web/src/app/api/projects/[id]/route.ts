@@ -7,11 +7,12 @@ import { getEscrowAddress } from "@/lib/arc";
 export const dynamic = "force-dynamic";
 
 /** Project detail, visible only to its participants (anyone else gets 404, so existence is not leaked). */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { address } = await requireSession(req);
     const project = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         agreementVersions: { orderBy: { versionNumber: "desc" } },
         milestones: {
@@ -34,7 +35,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     return NextResponse.json({
       success: true,
-      project,
+      project: {
+        ...project,
+        budgetUsdc: Number(project.budgetUsdc) / 1_000_000,
+        milestones: project.milestones.map((m) => ({
+          ...m,
+          amountUsdc: Number(m.amountUsdc) / 1_000_000,
+        })),
+      },
       viewer: { address, roles },
       // Public chain configuration the browser needs to build transactions. No secrets.
       chain: { escrowAddress: getEscrowAddress() },

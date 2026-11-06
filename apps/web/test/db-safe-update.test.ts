@@ -17,7 +17,7 @@ const SafeUpdateError: new (message?: string) => Error = dbUpdate.SafeUpdateErro
 const { describePlan, destructiveStatements, run } = dbUpdate as {
   describePlan: (sql: string) => { newTables: string[]; newColumns: string[]; newIndexes: string[] };
   destructiveStatements: (sql: string) => string[];
-  run: (o: { dbPath?: string; schemaPath?: string; apply?: boolean; backupDir?: string }) => any;
+  run: (o: { dbPath?: string; schemaPath?: string; apply?: boolean; backupDir?: string; financialMigration?: boolean }) => any;
 };
 
 const schemaPath = join(__dirname, "../prisma/schema.prisma");
@@ -58,6 +58,41 @@ function makeOldDb(name: string, seed = true): string {
     `);
     db.close();
   }
+
+  return file;
+}
+
+function makeLegacyFinancialDb(name: string): string {
+  const file = join(dir, `${name}.db`);
+  const schema = join(dir, `${name}.prisma`);
+  const legacy = oldSchema(file)
+    .replace(/arcChainId\s+Int[^\n]*/, '$&\n  registerTxHash String?')
+    .replace(/description\s+String\?/, '$&\n  addTxHash String?')
+    .replace(/budgetUsdc\s+String/, "budgetUsdc Float")
+    .replace(/amountUsdc\s+String/, "amountUsdc Float")
+    .replace(/model AgentPayment \{[\s\S]*?\n\}/, `model AgentPayment {
+  id              String   @id
+  evaluationId    String?
+  evaluation      EvaluationReport? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  serviceName     String
+  providerAccount String
+  amountHbar      Float
+  txId            String?
+  status          String
+  hashscanUrl     String?
+  policyDecision  String
+  settledAt       DateTime?
+  @@map("AgentPayment")
+}`);
+  writeFileSync(schema, legacy);
+  execFileSync(process.execPath, [require.resolve("prisma/build/index.js"), "db", "push", "--skip-generate", "--schema", schema], { stdio: "pipe" });
+  const db = new DatabaseSync(file);
+  db.exec(`
+    INSERT INTO "Project" (id,title,description,clientAddress,budgetUsdc,updatedAt) VALUES ('legacy-project','Legacy','d','0xc',12.345678,CURRENT_TIMESTAMP);
+    INSERT INTO "Milestone" (id,projectId,milestoneIndex,title,amountUsdc) VALUES ('legacy-milestone','legacy-project',1,'M1',1.234567);
+    INSERT INTO "AgentPayment" (id,serviceName,providerAccount,amountHbar,status,policyDecision) VALUES ('legacy-payment','scan','0.0.7',0.00000001,'PENDING','ALLOW');
+  `);
+  db.close();
   return file;
 }
 
@@ -140,6 +175,18 @@ test("refuses any plan that would DROP or rebuild existing structure", () => {
   const before = sha(file);
   assert.throws(() => run({ dbPath: file, schemaPath, apply: true, backupDir: join(dir, "bk-drop") }), (e: unknown) => e instanceof SafeUpdateError && /DROP TABLE "LegacyNotInSchema"/.test(e.message));
   assert.equal(sha(file), before, "the unknown table and its data are still there");
+});
+
+test("financial migration preserves legacy Float records as exact base-unit strings", () => {
+  const file = makeLegacyFinancialDb("financial");
+  const r = run({ dbPath: file, schemaPath, financialMigration: true, apply: true, backupDir: join(dir, "bk-financial") });
+  assert.equal(r.status, "APPLIED");
+  const db = new DatabaseSync(file, { readOnly: true });
+  assert.equal(db.prepare('SELECT budgetUsdc FROM "Project"').get().budgetUsdc, "12345678");
+  assert.equal(db.prepare('SELECT amountUsdc FROM "Milestone"').get().amountUsdc, "1234567");
+  assert.equal(db.prepare('SELECT amountTinybars FROM "AgentPayment"').get().amountTinybars, "1");
+  assert.equal(db.prepare('SELECT idempotencyKey FROM "AgentPayment"').get().idempotencyKey, "legacy:legacy-payment");
+  db.close();
 });
 
 test("a missing database is not silently created", () => {

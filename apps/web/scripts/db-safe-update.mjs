@@ -76,6 +76,42 @@ export function destructiveStatements(sql) {
     .map((l) => l.trim());
 }
 
+function isFinancialMigration(sql) {
+  return sql.includes('DROP TABLE "Project"') &&
+    sql.includes('DROP TABLE "Milestone"') &&
+    sql.includes('DROP TABLE "AgentPayment"') &&
+    !sql.includes('DROP TABLE "User"') &&
+    !sql.includes('DROP TABLE "Session"');
+}
+
+/** Rewrites Prisma's type-change rebuild so old Float money is converted exactly before replacement. */
+export function prepareFinancialMigration(sql) {
+  if (!isFinancialMigration(sql)) {
+    throw new SafeUpdateError("The requested financial migration contains an unexpected table rebuild.");
+  }
+  return sql
+    .replace(
+      /INSERT INTO "new_AgentPayment" \("evaluationId".*?FROM "AgentPayment";/s,
+      `INSERT INTO "new_AgentPayment" ("id","idempotencyKey","evaluationId","serviceName","providerAccount","amountTinybars","txId","status","hashscanUrl","policyDecision","settledAt","createdAt")
+       SELECT "id", 'legacy:' || "id", "evaluationId", "serviceName", "providerAccount",
+         printf('%.0f', "amountHbar" * 100000000), "txId", "status", "hashscanUrl", "policyDecision", "settledAt",
+         CURRENT_TIMESTAMP
+       FROM "AgentPayment";`,
+    )
+    .replace(
+      /INSERT INTO "new_Milestone" \("addTxHash".*?FROM "Milestone";/s,
+      `INSERT INTO "new_Milestone" ("addTxHash","amountUsdc","criteriaHash","description","fundedAt","fundingTxHash","id","milestoneIndex","projectId","releaseTxHash","releasedAt","state","title")
+       SELECT "addTxHash", printf('%.0f', "amountUsdc" * 1000000), "criteriaHash", "description", "fundedAt", "fundingTxHash", "id", "milestoneIndex", "projectId", "releaseTxHash", "releasedAt", "state", "title"
+       FROM "Milestone";`,
+    )
+    .replace(
+      /INSERT INTO "new_Project" \("arbiterAddress".*?FROM "Project";/s,
+      `INSERT INTO "new_Project" ("arbiterAddress","arcChainId","budgetUsdc","clientAddress","createdAt","description","escrowContractAddress","freelancerAddress","id","registerTxHash","status","title","updatedAt")
+       SELECT "arbiterAddress", "arcChainId", printf('%.0f', "budgetUsdc" * 1000000), "clientAddress", "createdAt", "description", "escrowContractAddress", "freelancerAddress", "id", "registerTxHash", "status", "title", "updatedAt"
+       FROM "Project";`,
+    );
+}
+
 /** New unique indexes fail on existing duplicates; find them first so we can refuse before touching anything. */
 export function uniqueConflicts(dbPath, sql) {
   const problems = [];
@@ -86,6 +122,8 @@ export function uniqueConflicts(dbPath, sql) {
       const [, table, colList] = m;
       if (!existing.has(table)) continue; // brand-new table: cannot have duplicates
       const cols = colList.split(",").map((c) => c.trim());
+      const available = new Set(db.prepare(`PRAGMA table_info("${table}")`).all().map((r) => r.name));
+      if (cols.some((column) => !available.has(column.replaceAll('"', "")))) continue;
       const rows = db.prepare(`SELECT ${cols.join(", ")}, COUNT(*) AS n FROM "${table}" GROUP BY ${cols.join(", ")} HAVING COUNT(*) > 1 LIMIT 5`).all();
       if (rows.length) problems.push(`${table}(${cols.join(", ")}) has ${rows.length}+ duplicate group(s), e.g. ${JSON.stringify(rows[0])}`);
     }
@@ -121,7 +159,7 @@ export function makeVerifiedBackup(dbPath, backupDir) {
  * Plans (and with apply=true, performs) the update. Returns a result object; throws SafeUpdateError when refusing.
  * Order is deliberate: plan -> refuse if unsafe -> verified backup -> transactional apply -> verify.
  */
-export function run({ dbPath, schemaPath, apply = false, backupDir } = {}) {
+export function run({ dbPath, schemaPath, apply = false, backupDir, financialMigration = false } = {}) {
   dbPath = resolve(dbPath ?? join(webRoot, "prisma", "dev.db"));
   schemaPath = resolve(schemaPath ?? join(webRoot, "prisma", "schema.prisma"));
   backupDir = resolve(backupDir ?? join(dirname(dbPath), "backups"));
@@ -130,11 +168,17 @@ export function run({ dbPath, schemaPath, apply = false, backupDir } = {}) {
     throw new SafeUpdateError(`No database at ${dbPath}. There is nothing to protect, so create it with: npm run db:push`);
   }
   const before = rowCounts(dbPath);
-  const sql = diffSql(dbPath, schemaPath);
+  let sql = diffSql(dbPath, schemaPath);
   if (!sql) return { status: "UP_TO_DATE", plan: describePlan(""), before };
 
   const bad = destructiveStatements(sql);
-  if (bad.length) {
+  if (financialMigration) {
+    if (!isFinancialMigration(sql)) {
+      throw new SafeUpdateError("Refusing: --financial-migration only permits the expected Project/Milestone/AgentPayment money conversion.");
+    }
+    sql = prepareFinancialMigration(sql);
+  }
+  if (bad.length && !financialMigration) {
     throw new SafeUpdateError(`Refusing: the update would remove or rebuild existing data structures:\n  ${bad.join("\n  ")}\nNothing was changed. Review these manually.`);
   }
   const conflicts = uniqueConflicts(dbPath, sql);
@@ -148,9 +192,11 @@ export function run({ dbPath, schemaPath, apply = false, backupDir } = {}) {
   const backupPath = makeVerifiedBackup(dbPath, backupDir);
   const db = new DatabaseSync(dbPath);
   try {
+    db.exec("PRAGMA foreign_keys=OFF");
     db.exec("BEGIN IMMEDIATE");
     db.exec(sql);
     db.exec("COMMIT");
+    db.exec("PRAGMA foreign_keys=ON");
   } catch (err) {
     try { db.exec("ROLLBACK"); } catch { /* already rolled back */ }
     throw new SafeUpdateError(`The update failed and was rolled back (${err.message}). The database is unchanged; a backup is at ${backupPath}.`);
@@ -170,7 +216,12 @@ function main() {
   const args = process.argv.slice(2);
   const opt = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
   try {
-    const result = run({ dbPath: opt("--db"), schemaPath: opt("--schema"), apply: args.includes("--apply") });
+    const result = run({
+      dbPath: opt("--db"),
+      schemaPath: opt("--schema"),
+      apply: args.includes("--apply"),
+      financialMigration: args.includes("--financial-migration"),
+    });
     const p = result.plan;
     if (result.status === "UP_TO_DATE") {
       console.log("Database is already up to date. Nothing to do.");

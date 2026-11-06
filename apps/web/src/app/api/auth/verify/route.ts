@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ARC_TESTNET_CONFIG } from "@/lib/arc";
 import { AuthMessageError, verifyLoginSignature } from "@/lib/siwe";
-import { consumeNonce, createSession, requestDomain, setSessionCookie } from "@/lib/session";
+import { consumeNonce, consumeRateLimit, createSession, requestDomain, setSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   try {
+    const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    await consumeRateLimit(`verify:${forwarded || "unknown"}`, 20, 60_000);
     const body = await req.json().catch(() => ({}));
     const { message, signature } = body ?? {};
     if (typeof message !== "string" || typeof signature !== "string") {
@@ -34,6 +36,9 @@ export async function POST(req: Request) {
     setSessionCookie(res, req, token, expiresAt);
     return res;
   } catch (error) {
+    if (error instanceof Error && "status" in error && (error as { status?: number }).status === 429) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 429 });
+    }
     if (error instanceof AuthMessageError) {
       return NextResponse.json({ success: false, code: error.code, error: error.message }, { status: 401 });
     }

@@ -24,7 +24,8 @@ model Project {
   freelancerAddress     String?
   arbiterAddress        String?
   status                String              @default("DRAFT") // DRAFT, AGREED, FUNDED, IN_PROGRESS, COMPLETED, DISPUTED
-  budgetUsdc            Float
+  /// Exact USDC base units (6 decimals), stored as a decimal string for SQLite portability.
+  budgetUsdc            String
   escrowContractAddress String?
   registerTxHash        String?             // verified createProject tx on Arc
   arcChainId            Int                 @default(5042002)
@@ -57,7 +58,8 @@ model Milestone {
   milestoneIndex   Int
   title            String
   description      String?
-  amountUsdc       Float
+  /// Exact USDC base units (6 decimals), stored as a decimal string for SQLite portability.
+  amountUsdc       String
   state            String       @default("UNFUNDED") // UNFUNDED, FUNDED, SUBMITTED, REVISION_REQUESTED, APPROVED, RELEASED, DISPUTED, REFUNDED
   criteriaHash     String?
   addTxHash        String?      // verified addMilestone tx on Arc
@@ -105,16 +107,19 @@ model EvaluationReport {
 
 model AgentPayment {
   id               String            @id @default(cuid())
+  idempotencyKey   String            @unique
   evaluationId     String?
   evaluation       EvaluationReport? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
   serviceName      String            // e.g. "Security Scanner"
   providerAccount  String            // e.g. "0.0.482910"
-  amountHbar       Float
+  /// Exact HBAR tinybars, stored as a decimal string for SQLite portability.
+  amountTinybars    String
   txId             String?
   status           String            // SETTLED, REJECTED_POLICY, NOT_CONFIGURED
   hashscanUrl      String?
   policyDecision   String
   settledAt        DateTime?
+  createdAt        DateTime          @default(now())
 }
 
 model ProofTrackEventRecord {
@@ -152,4 +157,11 @@ model Session {
   expiresAt DateTime
 
   @@index([address])
+}
+
+model RateLimitBucket {
+  key           String   @id
+  windowStarted BigInt
+  requestCount  Int
+  updatedAt     DateTime @updatedAt
 }

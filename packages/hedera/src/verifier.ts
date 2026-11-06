@@ -6,7 +6,7 @@
  * transaction with result SUCCESS and the exact transfer we agreed to: the payer debited `amount` tinybars
  * and the recipient credited `amount` tinybars. Anything less is reported as what it is.
  */
-import { isHederaAccountId } from "./units";
+import { isHederaAccountId, parseHbarToTinybars } from "./units";
 
 export const TESTNET_MIRROR_URL = "https://testnet.mirrornode.hedera.com/api/v1";
 
@@ -65,21 +65,29 @@ export class HederaSettlementVerifier {
     return hashScanTransactionUrl(txId);
   }
 
-  async verifySettlement(txId: string, payTo: string, amountHbar: number): Promise<{
+  async verifySettlement(txId: string, payer: string, payTo: string | number, amountHbar?: number | string): Promise<{
     isVerified: boolean;
     consensusTimestamp?: string;
     statusString?: string;
     error?: string;
   }> {
     if (!txId) return { isVerified: false, error: "MISSING_TX_ID" };
-    if (!Number.isFinite(amountHbar) || amountHbar <= 0) {
+    if (typeof payTo === "number" && amountHbar === undefined) {
+      return { isVerified: false, error: "PAYER_REQUIRED" };
+    }
+    const recipient = String(payTo);
+    if (amountHbar === undefined) return { isVerified: false, error: "INVALID_AMOUNT" };
+    let amountTinybars: bigint;
+    try {
+      amountTinybars = parseHbarToTinybars(String(amountHbar));
+    } catch {
       return { isVerified: false, error: "INVALID_AMOUNT" };
     }
     const result = await this.check({
       txId,
-      payer: "0.0.0",
-      payTo,
-      amountTinybars: BigInt(Math.round(amountHbar * 100_000_000)),
+      payer,
+      payTo: recipient,
+      amountTinybars,
     });
     if (result.status === "VERIFIED") {
       return { isVerified: true, consensusTimestamp: result.consensusTimestamp, statusString: "SUCCESS" };

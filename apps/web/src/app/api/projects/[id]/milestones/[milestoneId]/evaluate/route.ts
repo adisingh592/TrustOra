@@ -21,10 +21,10 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(
   req: Request,
-  { params }: { params: { id: string; milestoneId: string } }
+  { params }: { params: Promise<{ id: string; milestoneId: string }> }
 ) {
   try {
-    const { id, milestoneId } = params;
+    const { id, milestoneId } = await params;
     const session = await requireSession(req);
     const body = await readJsonBody(req);
 

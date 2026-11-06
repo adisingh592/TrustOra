@@ -1,50 +1,32 @@
-# TRUSTORA — Demo Script & Hackathon Video Guide
+# TRUSTORA demo script
 
-**Duration Target:** < 3 minutes 00 seconds (ETHGlobal rules)  
-**Presenter:** Solo Developer / Antigravity Assistant
+Use a local environment with seeded/test data and two distinct wallets. Distinguish application workflow from live chain activity. Do not show mock responses as real provider or blockchain results.
 
----
+## 1. Explain the problem
 
-## Story Arc: "From Ambiguous Scope to Verifiable Settlement"
+Show the landing page and describe the product: wallet-bound project agreements, milestone escrow, optional advisory AI evaluation, and a record of supporting evidence.
 
-### Segment 1: The Trust Crisis in Work (0:00 - 0:30)
-* **Visual:** TRUSTORA landing page with hero tagline: *"Trust Every Transaction. Secure Every Promise."*
-* **Narrative:**
-  > "Freelance and AI-agent work suffers from an age-old problem: ambiguous scopes, subjective disputes, and delayed payouts. Either the client gets burned, or the freelancer works without guaranteed escrow. TRUSTORA solves this with a programmable trust infrastructure: Arc smart escrow, 0G verifiable AI evaluation, and Hedera agent payments."
+## 2. Walk through client and freelancer roles
 
-### Segment 2: Agreement Intelligence & Arc Escrow Funding (0:30 - 1:15)
-* **Visual:**
-  1. Client types high-level scope: *"Build an e-commerce checkout page with responsive cart and Stripe integration."*
-  2. Agreement Intelligence parses it into 6 verifiable criteria (v1.0).
-  3. Freelancer signs and accepts Agreement v1.0.
-  4. Client funds Milestone 1 with 500 USDC on Arc Testnet via MetaMask.
-  5. Arc transaction confirms on `explorer.testnet.arc.io`. ProofTrack records `MilestoneFunded`.
-* **Narrative:**
-  > "Agreement Intelligence converts natural language into structured, version-locked acceptance criteria. Both parties accept Version 1. The client deposits 500 USDC into the `TrustoraEscrow` smart contract on Arc Testnet. Funds are locked safely in escrow with 6-decimal precision."
+1. Sign in as Wallet A and create a project with milestones and acceptance criteria.
+2. Invite Wallet B using its address.
+3. Sign in as Wallet B and show the invitation, project criteria, agreement acceptance, and deliverable submission.
+4. Return to Wallet A and show the submission, revision controls, and project state.
 
-### Segment 3: Work Submission & 0G AI Evaluation (1:15 - 2:05)
-* **Visual:**
-  1. Freelancer submits work (code files / repo zip / markdown). Deliverable SHA-256 hash is computed.
-  2. 0G Evaluation engine runs. Shows inference request ID from 0G Router.
-  3. Structured report generates: Criteria 1-5 PASS, Criterion 6 PARTIAL.
-  4. Notice highlighted: *"ADVISORY ONLY — CANNOT INDEPENDENTLY RELEASE FUNDS"*.
-  5. Hedera agent executes bounded x402 payment to specialized security scanner.
-* **Narrative:**
-  > "The freelancer submits their deliverable. TRUSTORA sends the work to 0G Private Computer, which assesses the deliverable against the exact agreed criteria. Notice the genuine 0G request ID. Crucially, AI is strictly advisory — it cannot drain or release escrow funds. A specialized security sub-check is paid autonomously via Hedera x402 under strict spending caps."
+These application routes can be demonstrated locally. If tests or seeded data are used, label them as test data.
 
-### Segment 4: Human Verification & Arc Escrow Release (2:05 - 2:40)
-* **Visual:**
-  1. Client reviews the 0G evaluation report and evidence quotes.
-  2. Client clicks **Approve & Release Payment**.
-  3. Client signs the Arc Testnet transaction.
-  4. 500 USDC is transferred to freelancer wallet.
-* **Narrative:**
-  > "Empowered by the objective 0G findings, the client approves the milestone. With one click, the client signs the Arc release transaction, instantly disbursing USDC to the freelancer's wallet."
+## 3. Show evaluation honestly
 
-### Segment 5: Trustora ProofTrack & Close (2:40 - 3:00)
-* **Visual:**
-  1. ProofTrack Public Verification page (`/verify/TRU-PROJ-2026-0001042`).
-  2. Visual timeline connecting: Arc Funding Tx -> 0G Inference Request ID -> Hedera Payment Tx -> Arc Release Tx.
-* **Narrative:**
-  > "Finally, the entire lifecycle is correlated on Trustora ProofTrack — every deposit, inference request, agent payment, and release has an independent, verifiable record. TRUSTORA: Trust Every Transaction. Secure Every Promise."
+Show the evaluation consent step and the advisory-only warning. With no valid 0G credentials/provider response, show `UNABLE_TO_ASSESS`. If a real provider is separately configured and returns a genuine response, show its returned request ID and clearly identify the provider; never invent an ID or present a mock as live inference.
 
+## 4. Explain escrow status
+
+The contract has local Hardhat tests, but this repository currently has no configured TRUSTORA escrow deployment. Do not claim funds are locked or released on Arc. If demonstrating the contract suite, identify the local network and mock token. A live Arc demonstration requires a separately deployed, verified contract and wallet-signed testnet transactions.
+
+## 5. Explain ProofTrack and Hedera status
+
+Show application evidence records and explain which Arc records are independently verified by receipt/event/state checks. An application event or 0G request ID is not a blockchain transaction. Hedera x402 execution and a public ProofTrack verification portal are not implemented.
+
+## Closing
+
+TRUSTORA keeps payment authorization with the client or contract-authorized arbiter. AI output is advisory. State the current live integration limitations before presenting the prototype as a release candidate.

@@ -4,10 +4,11 @@
  */
 
 import { HederaPaymentPolicy, X402Challenge } from "./types";
+import { formatTinybars, parseHbarToTinybars } from "./units";
 
 export const DEFAULT_HEDERA_POLICY: HederaPaymentPolicy = {
-  maxPaymentHbar: 5.0,        // Max 5 HBAR per request
-  maxDailyBudgetHbar: 25.0,    // Max 25 HBAR per 24 hours
+  maxPaymentTinybars: 500_000_000n,
+  maxDailyBudgetTinybars: 2_500_000_000n,
   allowedProviders: [
     "0.0.482910",              // Official Trustora Code Auditor Testnet Account
     "0.0.482911",              // Official Trustora Security Scanner Testnet Account
@@ -21,7 +22,7 @@ export const DEFAULT_HEDERA_POLICY: HederaPaymentPolicy = {
 
 export class AgentPolicyEngine {
   private policy: HederaPaymentPolicy;
-  private dailySpendTracker: Map<string, number> = new Map();
+  private dailySpendTracker: Map<string, bigint> = new Map();
 
   constructor(customPolicy?: Partial<HederaPaymentPolicy>) {
     this.policy = { ...DEFAULT_HEDERA_POLICY, ...customPolicy };
@@ -62,21 +63,31 @@ export class AgentPolicyEngine {
       };
     }
 
+    let amountTinybars: bigint;
+    try {
+      amountTinybars = challenge.amountTinybars ?? parseHbarToTinybars(String(challenge.amountHbar));
+    } catch {
+      return { allowed: false, reason: "POLICY_VIOLATION: Invalid HBAR amount" };
+    }
+    if (amountTinybars <= 0n) {
+      return { allowed: false, reason: "POLICY_VIOLATION: Payment amount must be positive" };
+    }
+
     // 4. Per-transaction amount cap
-    if (challenge.amountHbar > this.policy.maxPaymentHbar) {
+    if (amountTinybars > this.policy.maxPaymentTinybars) {
       return {
         allowed: false,
-        reason: `POLICY_VIOLATION: Requested amount ${challenge.amountHbar} HBAR exceeds maximum per-transaction cap (${this.policy.maxPaymentHbar} HBAR)`,
+        reason: `POLICY_VIOLATION: Requested amount ${formatTinybars(amountTinybars)} HBAR exceeds maximum per-transaction cap (${formatTinybars(this.policy.maxPaymentTinybars)} HBAR)`,
       };
     }
 
     // 5. Daily budget ceiling
     const today = new Date().toISOString().slice(0, 10);
-    const currentDailySpend = this.dailySpendTracker.get(today) || 0;
-    if (currentDailySpend + challenge.amountHbar > this.policy.maxDailyBudgetHbar) {
+    const currentDailySpend = this.dailySpendTracker.get(today) || 0n;
+    if (currentDailySpend + amountTinybars > this.policy.maxDailyBudgetTinybars) {
       return {
         allowed: false,
-        reason: `POLICY_VIOLATION: Requested payment would exceed daily budget ceiling (Current: ${currentDailySpend} HBAR, Cap: ${this.policy.maxDailyBudgetHbar} HBAR)`,
+        reason: `POLICY_VIOLATION: Requested payment would exceed daily budget ceiling (Current: ${formatTinybars(currentDailySpend)} HBAR, Cap: ${formatTinybars(this.policy.maxDailyBudgetTinybars)} HBAR)`,
       };
     }
 
@@ -86,19 +97,21 @@ export class AgentPolicyEngine {
   /**
    * Records successful spend towards daily budget ceiling.
    */
-  public recordSpend(amountHbar: number): void {
+  public recordSpend(amountHbar: number | string): void {
     const today = new Date().toISOString().slice(0, 10);
-    const currentDailySpend = this.dailySpendTracker.get(today) || 0;
-    this.dailySpendTracker.set(today, currentDailySpend + amountHbar);
+    const amount = parseHbarToTinybars(String(amountHbar));
+    if (amount <= 0n) throw new Error("Spend must be positive");
+    const currentDailySpend = this.dailySpendTracker.get(today) || 0n;
+    this.dailySpendTracker.set(today, currentDailySpend + amount);
   }
 
+  /** Compatibility display value; policy decisions remain bigint tinybars. */
   public getDailySpend(): number {
     const today = new Date().toISOString().slice(0, 10);
-    return this.dailySpendTracker.get(today) || 0;
+    return Number(formatTinybars(this.dailySpendTracker.get(today) || 0n));
   }
 
   public getPolicy(): Readonly<HederaPaymentPolicy> {
     return this.policy;
   }
 }
-
