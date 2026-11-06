@@ -166,6 +166,12 @@ model ProofEvent {
   verifiedAt         DateTime?
   explorerUrl        String?
   summary            String
+  /// Short reason for the current status. Never raw error text.
+  statusReason       String?
+  lastCheckedAt      DateTime?
+  createdAt          DateTime  @default(now())
+  /// JSON a verifier compares against. Server-side only, never sent to clients.
+  expectedJson       String    @default("{}")
 
   @@unique([referenceType, referenceValue, eventType])
   @@index([publicProjectId])
