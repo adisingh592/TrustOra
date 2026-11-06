@@ -80,6 +80,7 @@ const toResponse = (project: LoadedProject, userId: string) => {
     title: project.title,
     description: project.description,
     status: project.status,
+    paymentMode: project.paymentMode ?? "ARC_ESCROW",
     role: project.clientId === userId ? "client" : "freelancer",
     clientWallet: project.client.walletAddress,
     freelancerWallet: project.freelancer?.walletAddress ?? null,
@@ -159,7 +160,8 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
   app.post("/projects", async (request, reply) => {
     const body = CreateProjectBodySchema.safeParse(request.body);
     if (!body.success) return invalidInput(reply, body.error);
-    if (!tokenAddress) {
+    const input = body.data;
+    if (!tokenAddress && input.paymentMode === "ARC_ESCROW") {
       return sendError(
         reply,
         503,
@@ -167,7 +169,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
         "Projects cannot be created until the server's USDC address is configured.",
       );
     }
-    const input = body.data;
+    const effectiveTokenAddress = tokenAddress ?? "0x0000000000000000000000000000000000000001";
     if (firstPastDeadline(input.milestones)) {
       return sendError(reply, 400, "INVALID_INPUT", "The request is not valid: deadlines must be in the future.");
     }
@@ -199,7 +201,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
         freelancerWallet: input.freelancerWallet,
         arbiterWallet: input.arbiterWallet,
         chainId: ARC_TESTNET_CHAIN_ID,
-        tokenAddress,
+        tokenAddress: effectiveTokenAddress,
         tokenDecimals: USDC_DECIMALS,
         milestones: milestones.map(
           (m): MilestoneTerms => ({
@@ -223,6 +225,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
               clientId: client.id,
               freelancerId: freelancer.id,
               arbiterId: arbiter.id,
+              paymentMode: input.paymentMode,
               status: DRAFT,
               milestones: {
                 create: milestones.map((m) => ({
@@ -230,7 +233,7 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
                   onchainMilestoneId: m.onchainMilestoneId,
                   title: m.title,
                   amountBaseUnits: m.amount,
-                  tokenAddress,
+                  tokenAddress: effectiveTokenAddress,
                   tokenDecimals: USDC_DECIMALS,
                   deadline: new Date(m.deadline),
                   status: DRAFT,

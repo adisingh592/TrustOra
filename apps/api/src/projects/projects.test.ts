@@ -144,6 +144,7 @@ describe("POST /projects", () => {
     const { client, freelancer, project } = await setup();
     expect(project.id).toMatch(/^TRU-PROJ-2026-\d{7}$/);
     expect(project.status).toBe("DRAFT");
+    expect(project.paymentMode).toBe("ARC_ESCROW");
     expect(project.role).toBe("client");
     expect(project.clientWallet).toBe(client.address);
     expect(project.freelancerWallet).toBe(freelancer.address);
@@ -158,6 +159,12 @@ describe("POST /projects", () => {
       status: "DRAFT",
       criteria: ["FIXTURE criterion"],
     });
+  });
+
+  it("supports EXTERNAL_PAYMENT mode upon project creation", async () => {
+    const { project } = await setup({ paymentMode: "EXTERNAL_PAYMENT" });
+    expect(project.paymentMode).toBe("EXTERNAL_PAYMENT");
+    expect(project.status).toBe("DRAFT");
   });
 
   it("writes one version row per milestone, all with the same hash", async () => {

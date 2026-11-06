@@ -50,6 +50,8 @@ model Project {
   clientId        String
   freelancerId    String?
   arbiterId       String?
+  /// ARC_ESCROW or EXTERNAL_PAYMENT.
+  paymentMode     String   @default("ARC_ESCROW")
   /// A MilestoneStatus value: DRAFT until both parties accept, then AGREED.
   status          String
   createdAt       DateTime @default(now())

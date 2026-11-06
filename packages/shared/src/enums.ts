@@ -64,3 +64,18 @@ export const MILESTONE_STATUSES = [
   "REFUNDED",
 ] as const;
 export type MilestoneStatus = (typeof MILESTONE_STATUSES)[number];
+
+export const PAYMENT_MODES = ["ARC_ESCROW", "EXTERNAL_PAYMENT"] as const;
+export type PaymentMode = (typeof PAYMENT_MODES)[number];
+
+export const RISK_LEVELS = ["LOW", "MEDIUM", "HIGH"] as const;
+export type RiskLevel = (typeof RISK_LEVELS)[number];
+
+export const SCOPE_CHANGE_TYPES = [
+  "ADDED",
+  "REMOVED",
+  "MODIFIED",
+  "UNCHANGED",
+] as const;
+export type ScopeChangeType = (typeof SCOPE_CHANGE_TYPES)[number];
+

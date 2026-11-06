@@ -4,12 +4,18 @@ import {
   AgentPaymentRequestSchema,
   CreateProjectBodySchema,
   EvaluationResultSchema,
+  PaymentModeSchema,
   PositiveAmountSchema,
   ProofEventExpectedSchema,
   RecordProofEventInputSchema,
   ProjectStatusSchema,
   ProofEventSchema,
   PublicProjectIdSchema,
+  RiskLevelSchema,
+  ScopeGuardReportSchema,
+  TaevaEvaluationReportSchema,
+  TrustShieldReportSchema,
+  UnifiedTrustReportSchema,
   WalletAddressSchema,
 } from "./schemas.js";
 
@@ -276,5 +282,192 @@ describe("ProofTrack input schemas", () => {
     ["a file path", { privateFilePath: "/private/file.zip" }],
   ])("expected rejects %s", (_label, expected) => {
     expect(ProofEventExpectedSchema.safeParse(expected).success).toBe(false);
+  });
+});
+
+describe("PaymentMode and RiskLevel schemas", () => {
+  it("validates payment modes", () => {
+    expect(PaymentModeSchema.safeParse("ARC_ESCROW").success).toBe(true);
+    expect(PaymentModeSchema.safeParse("EXTERNAL_PAYMENT").success).toBe(true);
+    expect(PaymentModeSchema.safeParse("UNKNOWN_MODE").success).toBe(false);
+  });
+
+  it("validates risk levels", () => {
+    expect(RiskLevelSchema.safeParse("LOW").success).toBe(true);
+    expect(RiskLevelSchema.safeParse("MEDIUM").success).toBe(true);
+    expect(RiskLevelSchema.safeParse("HIGH").success).toBe(true);
+    expect(RiskLevelSchema.safeParse("CRITICAL").success).toBe(false);
+  });
+});
+
+describe("CreateProjectBody with payment modes", () => {
+  const sampleBody = {
+    title: "t",
+    description: "d",
+    freelancerWallet: `0x${"a".repeat(40)}`,
+    arbiterWallet: `0x${"b".repeat(40)}`,
+    milestones: [
+      {
+        title: "m1",
+        amount: "50000000",
+        deadline: "2099-01-01T00:00:00Z",
+        criteria: ["c1"],
+      },
+    ],
+  };
+
+  it("defaults paymentMode to ARC_ESCROW when omitted", () => {
+    const parsed = CreateProjectBodySchema.parse(sampleBody);
+    expect(parsed.paymentMode).toBe("ARC_ESCROW");
+  });
+
+  it("accepts explicit EXTERNAL_PAYMENT", () => {
+    const parsed = CreateProjectBodySchema.parse({
+      ...sampleBody,
+      paymentMode: "EXTERNAL_PAYMENT",
+    });
+    expect(parsed.paymentMode).toBe("EXTERNAL_PAYMENT");
+  });
+
+  it("rejects an invalid paymentMode", () => {
+    const result = CreateProjectBodySchema.safeParse({
+      ...sampleBody,
+      paymentMode: "BITCOIN_ESCROW",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("TAEVA, ScopeGuard, TrustShield & Unified Trust Report schemas", () => {
+  const taevaReport = {
+    milestoneId: "m1",
+    submissionId: "sub1",
+    fileHash: "a".repeat(64),
+    deterministicChecks: {
+      hashVerified: true,
+      deadlineMet: true,
+      agreementAccepted: true,
+      aiConsentGranted: true,
+    },
+    criteriaResults: [
+      {
+        criterion: "Pass all unit tests",
+        status: "PASS",
+        evidence: "Deterministic test run exited with code 0",
+      },
+    ],
+    overallStatus: "PASS",
+    isAdvisory: true,
+    evaluatedAt: "2026-01-01T00:00:00.000Z",
+    explanation: "Deliverable satisfies all deterministic and advisory criteria.",
+    requestId: "req-12345",
+    reportHash: "b".repeat(64),
+  };
+
+  const scopeGuardReport = {
+    publicProjectId: "TRU-PROJ-2026-0001042",
+    baseVersion: 1,
+    targetVersion: 2,
+    hasChanges: true,
+    milestoneDiffs: [
+      {
+        milestoneId: "m1",
+        title: "Milestone 1",
+        type: "MODIFIED",
+        deadlineShiftDays: 2,
+        amountDeltaBaseUnits: "0",
+        criteriaDiffs: [
+          {
+            type: "ADDED",
+            criterion: "New criteria requirement",
+          },
+        ],
+      },
+    ],
+    totalAmountDeltaBaseUnits: "0",
+    totalDeadlineShiftDays: 2,
+    timelineRisk: "LOW",
+    costRisk: "LOW",
+    overallRisk: "LOW",
+    approvalStatus: {
+      clientAccepted: true,
+      freelancerAccepted: false,
+      isFullyAccepted: false,
+    },
+    summary: "1 modified milestone with 1 added criterion, 2-day timeline shift.",
+  };
+
+  const trustShieldReport = {
+    publicProjectId: "TRU-PROJ-2026-0001042",
+    evaluatedAt: "2026-01-01T00:00:00.000Z",
+    deadlineAdherence: {
+      level: "LOW",
+      reason: "All active milestones are within their agreed schedule.",
+    },
+    scopeVolatility: {
+      level: "LOW",
+      reason: "Agreement has normal version progression (2 versions).",
+    },
+    submissionHistory: {
+      level: "LOW",
+      reason: "First-time submission without repeated revision cycles.",
+    },
+    disputeHistory: {
+      level: "LOW",
+      reason: "Zero active disputes or arbitration requests.",
+    },
+    overallRisk: "LOW",
+    overallConfidence: 0.95,
+    explanation: "Project exhibits healthy communication and schedule adherence.",
+    heuristicNotes: [
+      "Risk indicators are advisory heuristics and do not automate fund movements.",
+    ],
+  };
+
+  it("validates TaevaEvaluationReportSchema", () => {
+    expect(TaevaEvaluationReportSchema.safeParse(taevaReport).success).toBe(true);
+    // isAdvisory must be true
+    expect(
+      TaevaEvaluationReportSchema.safeParse({ ...taevaReport, isAdvisory: false }).success,
+    ).toBe(false);
+  });
+
+  it("validates ScopeGuardReportSchema", () => {
+    expect(ScopeGuardReportSchema.safeParse(scopeGuardReport).success).toBe(true);
+  });
+
+  it("validates TrustShieldReportSchema", () => {
+    expect(TrustShieldReportSchema.safeParse(trustShieldReport).success).toBe(true);
+  });
+
+  it("validates UnifiedTrustReportSchema", () => {
+    const unifiedReport = {
+      publicProjectId: "TRU-PROJ-2026-0001042",
+      paymentMode: "ARC_ESCROW",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      projectStatus: "ACTIVE",
+      taevaSummary: {
+        totalMilestones: 1,
+        evaluatedMilestones: 1,
+        evaluations: [taevaReport],
+      },
+      scopeGuardSummary: {
+        totalVersions: 2,
+        activeVersion: 1,
+        hasPendingProposals: true,
+        latestScopeChange: scopeGuardReport,
+      },
+      trustShieldSummary: trustShieldReport,
+      proofTrackSummary: {
+        totalEvents: 4,
+        verifiedCount: 2,
+        pendingCount: 2,
+        failedCount: 0,
+        ecosystemsInvolved: ["ARC", "ZERO_G", "APPLICATION"],
+      },
+      verifiableReportHash: "c".repeat(64),
+      disclaimer: "Advisory trust report.",
+    };
+    expect(UnifiedTrustReportSchema.safeParse(unifiedReport).success).toBe(true);
   });
 });

@@ -15,8 +15,11 @@ import {
   ECOSYSTEMS,
   INTEGRATION_STATUSES,
   MILESTONE_STATUSES,
+  PAYMENT_MODES,
   PROJECT_STATUSES,
   REFERENCE_TYPES,
+  RISK_LEVELS,
+  SCOPE_CHANGE_TYPES,
   VERIFICATION_STATUSES,
 } from "./enums.js";
 import { PROOF_EVENT_TYPES, type ProofEvent } from "./proofevent.js";
@@ -29,6 +32,9 @@ export const CriterionStatusSchema = z.enum(CRITERION_STATUSES);
 export const ProjectStatusSchema = z.enum(PROJECT_STATUSES);
 export const MilestoneStatusSchema = z.enum(MILESTONE_STATUSES);
 export const ProofEventTypeSchema = z.enum(PROOF_EVENT_TYPES);
+export const PaymentModeSchema = z.enum(PAYMENT_MODES);
+export const RiskLevelSchema = z.enum(RISK_LEVELS);
+export const ScopeChangeTypeSchema = z.enum(SCOPE_CHANGE_TYPES);
 
 /** Whole base units as a string, so "1.5" and 1500000 are both rejected. */
 const BaseUnitAmountSchema = z.string().regex(/^\d+$/);
@@ -186,6 +192,7 @@ export const CreateProjectBodySchema = z
     description: z.string().trim().min(1).max(2000),
     freelancerWallet: WalletAddressSchema,
     arbiterWallet: WalletAddressSchema,
+    paymentMode: PaymentModeSchema.default("ARC_ESCROW"),
     milestones: z.array(z.object(milestoneTerms).strict()).min(1).max(10),
   })
   .strict();
@@ -249,3 +256,151 @@ export const RecordProofEventInputSchema = z
   })
   .strict();
 export type RecordProofEventInput = z.output<typeof RecordProofEventInputSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* TAEVA (Trustora Adaptive Evidence Verification Algorithm) Schemas          */
+/* -------------------------------------------------------------------------- */
+
+export const TaevaCriterionResultSchema = z
+  .object({
+    criterion: z.string().trim().min(1),
+    status: CriterionStatusSchema,
+    evidence: z.string().trim().min(1),
+    advisoryNotes: z.string().optional(),
+  })
+  .strict();
+export type TaevaCriterionResult = z.infer<typeof TaevaCriterionResultSchema>;
+
+export const TaevaEvaluationReportSchema = z
+  .object({
+    milestoneId: z.string(),
+    submissionId: z.string(),
+    fileHash: z.string(),
+    deterministicChecks: z.object({
+      hashVerified: z.boolean(),
+      deadlineMet: z.boolean(),
+      agreementAccepted: z.boolean(),
+      aiConsentGranted: z.boolean(),
+    }),
+    criteriaResults: z.array(TaevaCriterionResultSchema),
+    overallStatus: CriterionStatusSchema,
+    isAdvisory: z.literal(true),
+    evaluatedAt: z.string(),
+    explanation: z.string(),
+    requestId: z.string(),
+    reportHash: z.string(),
+  })
+  .strict();
+export type TaevaEvaluationReport = z.infer<typeof TaevaEvaluationReportSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* ScopeGuard (Scope Change Detection) Schemas                                */
+/* -------------------------------------------------------------------------- */
+
+export const ScopeChangeCriterionDiffSchema = z
+  .object({
+    type: ScopeChangeTypeSchema,
+    criterion: z.string(),
+    previousCriterion: z.string().optional(),
+  })
+  .strict();
+export type ScopeChangeCriterionDiff = z.infer<typeof ScopeChangeCriterionDiffSchema>;
+
+export const ScopeChangeMilestoneDiffSchema = z
+  .object({
+    milestoneId: z.string(),
+    title: z.string(),
+    type: ScopeChangeTypeSchema,
+    deadlineShiftDays: z.number(),
+    amountDeltaBaseUnits: z.string(),
+    criteriaDiffs: z.array(ScopeChangeCriterionDiffSchema),
+  })
+  .strict();
+export type ScopeChangeMilestoneDiff = z.infer<typeof ScopeChangeMilestoneDiffSchema>;
+
+export const ScopeGuardReportSchema = z
+  .object({
+    publicProjectId: PublicProjectIdSchema,
+    baseVersion: z.number().int().positive(),
+    targetVersion: z.number().int().positive(),
+    hasChanges: z.boolean(),
+    milestoneDiffs: z.array(ScopeChangeMilestoneDiffSchema),
+    totalAmountDeltaBaseUnits: z.string(),
+    totalDeadlineShiftDays: z.number(),
+    timelineRisk: RiskLevelSchema,
+    costRisk: RiskLevelSchema,
+    overallRisk: RiskLevelSchema,
+    approvalStatus: z.object({
+      clientAccepted: z.boolean(),
+      freelancerAccepted: z.boolean(),
+      isFullyAccepted: z.boolean(),
+    }),
+    summary: z.string(),
+  })
+  .strict();
+export type ScopeGuardReport = z.infer<typeof ScopeGuardReportSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* TrustShield (Reliability & Risk Analysis) Schemas                          */
+/* -------------------------------------------------------------------------- */
+
+export const TrustRiskIndicatorSchema = z
+  .object({
+    level: RiskLevelSchema,
+    reason: z.string(),
+    details: z.record(z.string(), z.any()).optional(),
+  })
+  .strict();
+export type TrustRiskIndicator = z.infer<typeof TrustRiskIndicatorSchema>;
+
+export const TrustShieldReportSchema = z
+  .object({
+    publicProjectId: PublicProjectIdSchema,
+    evaluatedAt: z.string(),
+    deadlineAdherence: TrustRiskIndicatorSchema,
+    scopeVolatility: TrustRiskIndicatorSchema,
+    submissionHistory: TrustRiskIndicatorSchema,
+    disputeHistory: TrustRiskIndicatorSchema,
+    overallRisk: RiskLevelSchema,
+    overallConfidence: z.number().min(0).max(1),
+    explanation: z.string(),
+    heuristicNotes: z.array(z.string()),
+  })
+  .strict();
+export type TrustShieldReport = z.infer<typeof TrustShieldReportSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Unified Trust Report Schemas                                               */
+/* -------------------------------------------------------------------------- */
+
+export const UnifiedTrustReportSchema = z
+  .object({
+    publicProjectId: PublicProjectIdSchema,
+    paymentMode: PaymentModeSchema,
+    generatedAt: z.string(),
+    projectStatus: ProjectStatusSchema,
+    taevaSummary: z.object({
+      totalMilestones: z.number().int().nonnegative(),
+      evaluatedMilestones: z.number().int().nonnegative(),
+      evaluations: z.array(TaevaEvaluationReportSchema),
+    }),
+    scopeGuardSummary: z.object({
+      totalVersions: z.number().int().positive(),
+      activeVersion: z.number().int().positive(),
+      hasPendingProposals: z.boolean(),
+      latestScopeChange: ScopeGuardReportSchema.optional(),
+    }),
+    trustShieldSummary: TrustShieldReportSchema,
+    proofTrackSummary: z.object({
+      totalEvents: z.number().int().nonnegative(),
+      verifiedCount: z.number().int().nonnegative(),
+      pendingCount: z.number().int().nonnegative(),
+      failedCount: z.number().int().nonnegative(),
+      ecosystemsInvolved: z.array(EcosystemSchema),
+    }),
+    verifiableReportHash: z.string(),
+    disclaimer: z.string(),
+  })
+  .strict();
+export type UnifiedTrustReport = z.infer<typeof UnifiedTrustReportSchema>;
+

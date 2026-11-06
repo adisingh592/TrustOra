@@ -1,6 +1,6 @@
 import cookie from "@fastify/cookie";
 import { createWalletAuthVerifier } from "@trustora/security";
-import type { EscrowAdapter } from "@trustora/shared";
+import type { EscrowAdapter, EvaluationAdapter } from "@trustora/shared";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { type AuthConfig, loadAuthConfig } from "./auth/config.js";
 import { createPrismaNonceStore } from "./auth/nonceStore.js";
@@ -10,6 +10,10 @@ import { prisma } from "./db.js";
 import { loadTokenAddress } from "./projects/config.js";
 import { projectRoutes } from "./projects/routes.js";
 import { proofTrackRoutes } from "./prooftrack/routes.js";
+import { scopeGuardRoutes } from "./scopeguard/routes.js";
+import { taevaRoutes } from "./taeva/routes.js";
+import { trustReportRoutes } from "./trustreport/routes.js";
+import { trustShieldRoutes } from "./trustshield/routes.js";
 
 export const LOG_REDACT_PATHS = [
   "req.headers.cookie",
@@ -32,6 +36,8 @@ export interface BuildAppOptions {
   tokenAddress?: string | null;
   /** No real chain adapter exists yet, so ProofTrack events stay PENDING by default. */
   chainAdapter?: EscrowAdapter | null;
+  /** Optional evaluation adapter for TAEVA advisory AI assessment. */
+  evaluationAdapter?: EvaluationAdapter | null;
   /** For tests. */
   now?: () => Date;
 }
@@ -63,6 +69,15 @@ export const buildApp = (options: BuildAppOptions = {}) => {
     chainAdapter: options.chainAdapter ?? null,
     now,
   });
+  app.register(scopeGuardRoutes, { prisma, requireUser });
+  app.register(taevaRoutes, {
+    prisma,
+    requireUser,
+    evaluationAdapter: options.evaluationAdapter ?? null,
+    now,
+  });
+  app.register(trustShieldRoutes, { prisma, requireUser, now });
+  app.register(trustReportRoutes, { prisma, requireUser, now });
 
   return Object.assign(app, { requireUser });
 };

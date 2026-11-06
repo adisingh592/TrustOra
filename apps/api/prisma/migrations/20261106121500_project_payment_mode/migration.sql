@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Project" ADD COLUMN "paymentMode" TEXT NOT NULL DEFAULT 'ARC_ESCROW';
