@@ -6,7 +6,7 @@ import { prisma } from "./db.js";
 import { validateProductionEnv, validateStartupConfig } from "./serverConfig.js";
 import { installGracefulShutdown } from "./shutdown.js";
 
-const isTest = process.env.NODE_ENV === "test";
+const isTest = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
 
 // Values already set in the environment win over the file.
 const envFile = join(dirname(fileURLToPath(import.meta.url)), "..", ".env");

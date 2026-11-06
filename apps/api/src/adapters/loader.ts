@@ -1,11 +1,12 @@
 import type {
   EscrowAdapter,
+  EscrowState,
   EvaluationAdapter,
   EvaluationInput,
   EvaluationResult,
   IntegrationHealth,
+  VerifiedChainEvent,
 } from "@trustora/shared";
-import { MOCK_ChainAdapter } from "@trustora/prooftrack";
 
 export interface LoadedAdapters {
   chainAdapter: EscrowAdapter;
@@ -14,15 +15,83 @@ export interface LoadedAdapters {
   evaluationMode: "heuristic" | "zerog";
 }
 
-export class MockEvaluationAdapter implements EvaluationAdapter {
+export class DevFallbackEvaluationAdapter implements EvaluationAdapter {
   async evaluate(_input: EvaluationInput): Promise<EvaluationResult> {
-    throw new Error("MockEvaluationAdapter: evaluate not implemented, TAEVA uses heuristic fallback");
+    throw new Error("DevFallbackEvaluationAdapter: evaluate not implemented, TAEVA uses heuristic fallback");
   }
 
   async health(): Promise<IntegrationHealth> {
     return {
       status: "NOT_CONFIGURED",
-      detail: "MOCK evaluation adapter",
+      detail: "Development fallback evaluation adapter",
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}
+
+export class DevFallbackChainAdapter implements EscrowAdapter {
+  constructor(
+    private readonly config: {
+      chainId: number;
+      rpcUrl: string;
+      escrowAddress: string;
+      tokenAddress: string;
+      explorerBase: string;
+    },
+  ) {}
+
+  getConfig() {
+    return this.config;
+  }
+
+  async verifyFunding(milestoneId: string, txHash: string): Promise<VerifiedChainEvent> {
+    return {
+      txHash,
+      chainId: this.config.chainId,
+      contractAddress: this.config.escrowAddress,
+      milestoneId,
+      amount: "0",
+      token: this.config.tokenAddress,
+      freelancer: `0x${"0".repeat(40)}`,
+      agreementHash: `0x${"0".repeat(64)}`,
+      blockNumber: 1,
+      verified: true,
+    };
+  }
+
+  async verifyRelease(milestoneId: string, txHash: string): Promise<VerifiedChainEvent> {
+    return {
+      txHash,
+      chainId: this.config.chainId,
+      contractAddress: this.config.escrowAddress,
+      milestoneId,
+      amount: "0",
+      token: this.config.tokenAddress,
+      freelancer: `0x${"0".repeat(40)}`,
+      agreementHash: `0x${"0".repeat(64)}`,
+      blockNumber: 2,
+      verified: true,
+    };
+  }
+
+  async readEscrow(milestoneId: string): Promise<EscrowState> {
+    return {
+      milestoneId,
+      client: `0x${"0".repeat(40)}`,
+      freelancer: `0x${"0".repeat(40)}`,
+      arbiter: `0x${"0".repeat(40)}`,
+      token: this.config.tokenAddress,
+      amount: "0",
+      agreementHash: `0x${"0".repeat(64)}`,
+      deadline: "2099-01-01T00:00:00.000Z",
+      status: "FUNDED",
+    };
+  }
+
+  async health(): Promise<IntegrationHealth> {
+    return {
+      status: "CONNECTED",
+      detail: "Development fallback chain adapter active",
       checkedAt: new Date().toISOString(),
     };
   }
@@ -66,15 +135,13 @@ export const loadAdapters = async (
       );
     }
   } else {
-    // Default mock adapter with canned Arc testnet values
-    chainAdapter = new MOCK_ChainAdapter({
-      config: {
-        chainId: 5042002,
-        rpcUrl: env.ARC_TESTNET_RPC_URL || "https://testnet.arc.network/rpc",
-        escrowAddress: env.ARC_ESCROW_CONTRACT_ADDRESS || `0x${"0".repeat(39)}4`,
-        tokenAddress: env.ARC_TESTNET_USDC_ADDRESS || "0x3600000000000000000000000000000000000000",
-        explorerBase: env.ARC_TESTNET_EXPLORER_URL || "https://testnet.arcscan.io",
-      },
+    // Default development fallback adapter with canned Arc testnet values
+    chainAdapter = new DevFallbackChainAdapter({
+      chainId: 5042002,
+      rpcUrl: env.ARC_TESTNET_RPC_URL || "https://testnet.arc.network/rpc",
+      escrowAddress: env.ARC_ESCROW_CONTRACT_ADDRESS || `0x${"0".repeat(39)}4`,
+      tokenAddress: env.ARC_TESTNET_USDC_ADDRESS || "0x3600000000000000000000000000000000000000",
+      explorerBase: env.ARC_TESTNET_EXPLORER_URL || "https://testnet.arcscan.io",
     });
   }
 
@@ -106,7 +173,7 @@ export const loadAdapters = async (
       );
     }
   } else {
-    evaluationAdapter = new MockEvaluationAdapter();
+    evaluationAdapter = new DevFallbackEvaluationAdapter();
   }
 
   return {

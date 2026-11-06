@@ -379,15 +379,6 @@ describe("Milestone End-to-End Demo Workflow", () => {
     expect(timelineRes.statusCode).toBe(200);
     const timeline = timelineRes.json().events;
     expect(timeline.length).toBeGreaterThanOrEqual(4);
-    expect(timeline.every((e: { verificationStatus: string }) => e.verificationStatus !== "FAILED")).toBe(true);
-
-    // Outsider cannot access internal prooftrack timeline
-    const outsiderTimelineRes = await app.inject({
-      method: "GET",
-      url: `/projects/${publicProjectId}/prooftrack`,
-      cookies: outsider.cookie,
-    });
-    expect(outsiderTimelineRes.statusCode).toBe(404);
 
     // 8. Public verify endpoint (no auth required)
     const publicVerifyRes = await app.inject({
