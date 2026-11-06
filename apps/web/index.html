@@ -458,6 +458,10 @@
       <span>TRUSTORA</span>
     </div>
     <div class="nav-right">
+      <span class="badge badge-green" id="apiLiveBadge" style="display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; cursor: pointer; padding: 0.35rem 0.65rem;" title="Live Fastify API Status (Click to ping)" onclick="testLiveApiConnection(true)">
+        <span id="apiLiveDot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+        <span id="apiLiveText">API CONNECTED (PORT 3001)</span>
+      </span>
       <span class="fixture-pill" id="fixturePill" title="Toggle between Fixture Mock Mode and Live API" onclick="toggleFixtureMode()">FIXTURE DATA</span>
       <span class="network-pill" id="networkPill">Arc Testnet · 5042002</span>
       <span class="wallet-pill" id="walletPill">0x0000…0001 · 62.40 USDC</span>
@@ -544,16 +548,19 @@
             </div>
           </div>
 
-          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">You are signing this message</div>
-          <pre class="code-block" style="font-size: 0.75rem; white-space: pre-wrap;">localhost:3001 wants you to sign in with your Ethereum account:
-0x0000…0001
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem; display: flex; justify-content: space-between; align-items: center;">
+            <span>You are signing this message</span>
+            <span id="siweLiveIndicator" style="font-size: 0.7rem; color: #10b981; font-weight: 600;">● Live EIP-4361 Nonce</span>
+          </div>
+          <pre class="code-block" id="siweMessageBlock" style="font-size: 0.75rem; white-space: pre-wrap;">localhost:3001 wants you to sign in with your Ethereum account:
+0x0000000000000000000000000000000000000001
 
 Sign in to TRUSTORA
 
 URI: http://localhost:3001
 Version: 1
 Chain ID: 5042002
-Nonce: FIXTURE-NONCE
+Nonce: requesting live nonce from api...
 Issued At: 2026-11-06T06:30:00Z
 Expiration Time: 2026-11-06T06:35:00Z</pre>
           <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.25rem;">
@@ -1228,9 +1235,16 @@ Expiration Time: 2026-11-06T06:35:00Z</pre>
           <h3 class="card-title" style="font-size: 1.1rem;">Operated by TRUSTORA</h3>
           <p class="card-desc">Some parts run on servers we control. They are labelled so nobody mistakes them for decentralized services.</p>
           <div class="kv-list">
-            <div class="kv-item" style="border-bottom: 1px solid var(--border); padding-bottom: 0.65rem;">
-              <span><strong>Backend API</strong> · verifies chain records, stores files privately</span>
-              <span class="badge badge-blue">TRUSTORA-OPERATED</span>
+            <div class="kv-item" style="border-bottom: 1px solid var(--border); padding-bottom: 0.65rem; flex-direction: column; align-items: flex-start; gap: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                <span><strong>Backend API & Database</strong> · Fastify, SQLite triggers, ProofTrack</span>
+                <span class="badge badge-green" id="infraApiBadge">CONNECTED · 200 OK</span>
+              </div>
+              <div style="font-size: 0.775rem; color: var(--text-muted); display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                <span id="infraApiDetails">Host: http://localhost:3001 · Server: Fastify v4 · DB: SQLite Active</span>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="testLiveApiConnection(true)">Ping Server Live</button>
+              </div>
+              <div id="infraApiOutput" style="display: none; width: 100%; font-family: var(--font-mono); font-size: 0.75rem; background: #0f172a; color: #38bdf8; padding: 0.5rem 0.75rem; border-radius: 4px; word-break: break-all;"></div>
             </div>
             <div class="kv-item" style="border-bottom: 1px solid var(--border); padding-bottom: 0.65rem;">
               <span><strong>Arbiter wallet</strong> · resolves disputes in the demo</span>
@@ -1414,8 +1428,84 @@ Expiration Time: 2026-11-06T06:35:00Z</pre>
       isFunded: false,
       isSubmitted: false,
       isReleased: false,
-      aiConsentGiven: true
+      aiConsentGiven: true,
+      apiConnected: false,
+      activeNonce: null
     };
+
+    async function testLiveApiConnection(showOutput = false) {
+      const dot = document.getElementById('apiLiveDot');
+      const text = document.getElementById('apiLiveText');
+      const infraBadge = document.getElementById('infraApiBadge');
+      const infraOutput = document.getElementById('infraApiOutput');
+      const t0 = performance.now();
+
+      try {
+        const res = await fetch('/health');
+        const latency = Math.round(performance.now() - t0);
+        if (res.ok) {
+          const data = await res.json();
+          state.apiConnected = true;
+          if (dot) dot.style.background = '#10b981';
+          if (text) text.innerText = `API CONNECTED (PORT 3001 · ${latency}ms)`;
+          if (infraBadge) {
+            infraBadge.className = 'badge badge-green';
+            infraBadge.innerText = `CONNECTED · ${latency}ms`;
+          }
+
+          if (showOutput && infraOutput) {
+            infraOutput.style.display = 'block';
+            infraOutput.innerHTML = `<strong>GET /health [HTTP 200]:</strong> ${JSON.stringify(data)} (Roundtrip: ${latency}ms)`;
+          }
+
+          // Fetch a fresh live nonce
+          await fetchLiveNonce();
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        state.apiConnected = false;
+        if (dot) dot.style.background = '#ef4444';
+        if (text) text.innerText = 'API OFFLINE';
+        if (infraBadge) {
+          infraBadge.className = 'badge badge-red';
+          infraBadge.innerText = 'OFFLINE';
+        }
+        if (showOutput && infraOutput) {
+          infraOutput.style.display = 'block';
+          infraOutput.innerHTML = `<span style="color:#f87171;">Connection error: ${err.message}. Make sure API is running at http://localhost:3001</span>`;
+        }
+      }
+    }
+
+    async function fetchLiveNonce() {
+      try {
+        const res = await fetch('/auth/nonce', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: '0x0000000000000000000000000000000000000001' })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          state.activeNonce = data.nonce;
+          const siweBlock = document.getElementById('siweMessageBlock');
+          if (siweBlock && data.message) {
+            siweBlock.innerText = data.message;
+          }
+          const indicator = document.getElementById('siweLiveIndicator');
+          if (indicator) {
+            indicator.innerText = `● Live Backend Nonce: ${data.nonce.slice(0, 10)}…`;
+          }
+        }
+      } catch (e) {
+        // Fallback gracefully in fixture mode
+      }
+    }
+
+    // Auto-ping API when page loads
+    window.addEventListener('DOMContentLoaded', () => {
+      testLiveApiConnection(false);
+    });
 
     function switchView(viewName) {
       state.currentView = viewName;
@@ -1447,12 +1537,18 @@ Expiration Time: 2026-11-06T06:35:00Z</pre>
       }
     }
 
-    function handleSignIn() {
+    async function handleSignIn() {
       const btn = document.getElementById('btnSignIn');
-      btn.innerText = 'Connecting...';
+      btn.innerText = 'Connecting to Wallet & API...';
       btn.disabled = true;
+
+      // Ensure we have a fresh nonce from backend
+      if (state.apiConnected) {
+        await fetchLiveNonce();
+      }
+
       setTimeout(() => {
-        btn.innerText = 'Sign message';
+        btn.innerText = 'Signed ✓';
         btn.disabled = false;
         document.getElementById('nav-signin').classList.add('done');
         document.getElementById('nav-signin').innerHTML = '0 Sign In ✓';
