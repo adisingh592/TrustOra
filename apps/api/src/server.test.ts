@@ -1,7 +1,13 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { app } from "./server.js";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FastifyInstance } from "fastify";
 
-afterAll(() => app.close());
+let app: FastifyInstance;
+
+beforeAll(async () => {
+  ({ app } = await import("./server.js"));
+});
+
+afterAll(() => app?.close());
 
 describe("GET /health", () => {
   it("returns ok", async () => {
