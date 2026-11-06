@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import cookie from "@fastify/cookie";
+import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { createArkivAdapterFromEnv, loadArkivConfig } from "@trustora/arkiv";
 import { createWalletAuthVerifier } from "@trustora/security";
 import type { AnchorAdapter, EscrowAdapter, EvaluationAdapter } from "@trustora/shared";
@@ -10,7 +12,10 @@ import { type AuthConfig, loadAuthConfig } from "./auth/config.js";
 import { createPrismaNonceStore } from "./auth/nonceStore.js";
 import { authRoutes, createRequireUser } from "./auth/routes.js";
 import { createSessionCodec } from "./auth/session.js";
+import { buildCorsOptions, parseWebOrigins } from "./cors.js";
 import { prisma } from "./db.js";
+import { infrastructureRoutes } from "./infrastructure/routes.js";
+import { milestoneRoutes } from "./milestones/milestoneRoutes.js";
 import { loadTokenAddress } from "./projects/config.js";
 import { projectRoutes } from "./projects/routes.js";
 import { anchorRoutes } from "./prooftrack/anchorRoutes.js";
@@ -45,6 +50,12 @@ export interface BuildAppOptions {
   anchorAdapter?: AnchorAdapter | null;
   /** Optional evaluation adapter for TAEVA advisory AI assessment. */
   evaluationAdapter?: EvaluationAdapter | null;
+  /** Private storage directory for uploaded deliverables. */
+  storageDir?: string;
+  /** Defaults to WEB_ORIGIN (comma-separated). Only these origins may use the cookie-bearing API. */
+  webOrigins?: string[];
+  /** Defaults to TRUST_PROXY ("true" => true, anything else => false). */
+  trustProxy?: boolean;
   /** For tests. */
   now?: () => Date;
 }
@@ -54,12 +65,35 @@ export const buildApp = (options: BuildAppOptions = {}) => {
   const now = options.now ?? (() => new Date());
   const tokenAddress =
     options.tokenAddress !== undefined ? options.tokenAddress : loadTokenAddress();
+  const webOrigins = options.webOrigins ?? parseWebOrigins(process.env.WEB_ORIGIN);
+  const trustProxy = options.trustProxy ?? process.env.TRUST_PROXY === "true";
 
-  const app = Fastify({ logger: options.logger ?? defaultLogger() });
+  const app = Fastify({
+    logger: options.logger ?? defaultLogger(),
+    bodyLimit: 30 * 1024 * 1024,
+    trustProxy,
+  });
   app.decorateRequest("userId", null);
   app.register(cookie);
+  // Only WEB_ORIGIN's origins may use this cookie-bearing API from a browser:
+  // never a wildcard, and a request with no Origin header is unaffected.
+  app.register(cors, buildCorsOptions(webOrigins));
+  app.register(multipart, {
+    limits: {
+      fileSize: 25 * 1024 * 1024,
+      files: 1,
+    },
+  });
 
   app.get("/health", async () => ({ ok: true }));
+  app.get("/ready", async (_request, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return reply.send({ ok: true, database: "connected", timestamp: now().toISOString() });
+    } catch {
+      return reply.code(503).send({ ok: false, database: "disconnected", timestamp: now().toISOString() });
+    }
+  });
 
   const webIndexPath = join(dirname(fileURLToPath(import.meta.url)), "../../web/index.html");
   app.get("/", async (_request, reply) => {
@@ -95,6 +129,19 @@ export const buildApp = (options: BuildAppOptions = {}) => {
     now,
   });
   app.register(anchorRoutes, { prisma, requireUser, anchorAdapter, now });
+  app.register(milestoneRoutes, {
+    prisma,
+    requireUser,
+    chainAdapter: options.chainAdapter ?? null,
+    storageDir: options.storageDir,
+    now,
+  });
+  app.register(infrastructureRoutes, {
+    prisma,
+    chainAdapter: options.chainAdapter ?? null,
+    evaluationAdapter: options.evaluationAdapter ?? null,
+    now,
+  });
   app.register(scopeGuardRoutes, { prisma, requireUser });
   app.register(taevaRoutes, {
     prisma,

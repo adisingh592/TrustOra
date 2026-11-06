@@ -530,7 +530,13 @@ describe("config", () => {
 
   it("accepts a 32 character secret in production and marks it production", () => {
     const secret = "x".repeat(32);
-    expect(production(secret)).toEqual({ domain: "localhost:3001", sessionSecret: secret, isProduction: true });
+    expect(production(secret)).toEqual({
+      domain: "localhost:3001",
+      sessionSecret: secret,
+      isProduction: true,
+      cookieSameSite: "lax",
+      cookieSecure: true,
+    });
   });
 
   it("uses a random secret per process outside production, never a fixed one", () => {

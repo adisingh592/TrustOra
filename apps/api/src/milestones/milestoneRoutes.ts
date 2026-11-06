@@ -11,7 +11,7 @@ import {
   type EscrowState,
   type VerifiedChainEvent,
 } from "@trustora/shared";
-import { createUploadValidator } from "@trustora/security";
+import { DEFAULT_UPLOAD_POLICY, uploadValidator } from "@trustora/security";
 import type { FastifyInstance, FastifyReply, preHandlerAsyncHookHandler } from "fastify";
 import { sendError, sendInternalError, statusOf } from "../auth/routes.js";
 
@@ -35,8 +35,6 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
   if (!existsSync(storageDir)) {
     mkdirSync(storageDir, { recursive: true });
   }
-
-  const uploadValidator = createUploadValidator();
 
   app.addHook("onRequest", requireUser);
 
@@ -99,6 +97,32 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
           });
         }
         return sendError(reply, 400, "MILESTONE_ALREADY_FUNDED", "This milestone is already funded.");
+      }
+
+      const existingProof = await prisma.proofEvent.findUnique({
+        where: {
+          referenceType_referenceValue_eventType: {
+            referenceType: "BLOCKCHAIN_TRANSACTION_HASH",
+            referenceValue: txHash,
+            eventType: "MILESTONE_FUNDED",
+          },
+        },
+      });
+      if (existingProof) {
+        if (existingProof.publicProjectId === project.publicProjectId) {
+          return reply.send({
+            ok: true,
+            milestoneId: milestone.id,
+            status: milestone.status,
+            alreadyProcessed: true,
+          });
+        }
+        return sendError(
+          reply,
+          400,
+          "REFERENCE_ALREADY_USED",
+          "This transaction hash has already been used for another project.",
+        );
       }
 
       // Terms must be agreed before funding
@@ -262,6 +286,32 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
       const milestone = project.milestones[0]!;
 
       // Milestone must be FUNDED or WORK_SUBMITTED
+      const existingProof = await prisma.proofEvent.findUnique({
+        where: {
+          referenceType_referenceValue_eventType: {
+            referenceType: "BLOCKCHAIN_TRANSACTION_HASH",
+            referenceValue: txHash,
+            eventType: "WORK_SUBMITTED",
+          },
+        },
+      });
+      if (existingProof) {
+        if (existingProof.publicProjectId === project.publicProjectId) {
+          return reply.send({
+            ok: true,
+            milestoneId: milestone.id,
+            status: milestone.status,
+            alreadyProcessed: true,
+          });
+        }
+        return sendError(
+          reply,
+          400,
+          "REFERENCE_ALREADY_USED",
+          "This transaction hash has already been used for another project.",
+        );
+      }
+
       if (milestone.status !== "FUNDED" && milestone.status !== "WORK_SUBMITTED") {
         return sendError(
           reply,
@@ -284,11 +334,14 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
       const aiConsentField = (data.fields.aiConsent as { value?: string } | undefined)?.value;
       const aiConsent = aiConsentField === "true" || aiConsentField === "1";
 
-      const validation = uploadValidator.validate({
-        name: fileName,
-        claimedMime,
-        bytes: new Uint8Array(bytes),
-      });
+      const validation = await uploadValidator.validate(
+        {
+          name: fileName,
+          claimedMime,
+          bytes: new Uint8Array(bytes),
+        },
+        DEFAULT_UPLOAD_POLICY,
+      );
 
       if (!validation.ok) {
         return sendError(reply, 400, "INVALID_UPLOAD", validation.reason);
@@ -445,6 +498,32 @@ export const milestoneRoutes = async (app: FastifyInstance, deps: MilestoneRoute
             alreadyProcessed: true,
           });
         }
+      }
+
+      const existingProof = await prisma.proofEvent.findUnique({
+        where: {
+          referenceType_referenceValue_eventType: {
+            referenceType: "BLOCKCHAIN_TRANSACTION_HASH",
+            referenceValue: txHash,
+            eventType: "WORK_SUBMITTED",
+          },
+        },
+      });
+      if (existingProof) {
+        if (existingProof.publicProjectId === project.publicProjectId) {
+          return reply.send({
+            ok: true,
+            milestoneId: milestone.id,
+            status: milestone.status,
+            alreadyProcessed: true,
+          });
+        }
+        return sendError(
+          reply,
+          400,
+          "REFERENCE_ALREADY_USED",
+          "This transaction hash has already been used for another project.",
+        );
       }
 
       if (milestone.status !== "FUNDED" && milestone.status !== "WORK_SUBMITTED") {

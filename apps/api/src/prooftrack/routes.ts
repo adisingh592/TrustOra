@@ -44,7 +44,14 @@ export interface ProofTrackRouteDeps {
 export const proofTrackRoutes = async (app: FastifyInstance, deps: ProofTrackRouteDeps) => {
   const { prisma, requireUser, chainAdapter, anchorAdapter, now } = deps;
   const store = createPrismaEventStore(prisma);
-  const proofTrack = createProofTrack({ store, now });
+  const explorerTemplates: Partial<Record<string, string>> = {};
+  if (chainAdapter) {
+    const cfg = chainAdapter.getConfig();
+    if (cfg.explorerBase) {
+      explorerTemplates.ARC = `${cfg.explorerBase}/tx/{reference}`;
+    }
+  }
+  const proofTrack = createProofTrack({ store, now, explorerTemplates: explorerTemplates as any });
   const verifiers = new Map(buildVerifiers(chainAdapter));
   if (anchorAdapter) {
     verifiers.set(
@@ -72,7 +79,11 @@ export const proofTrackRoutes = async (app: FastifyInstance, deps: ProofTrackRou
     const project = await prisma.project.findFirst({
       where: {
         publicProjectId,
-        OR: [{ clientId: userId ?? "" }, { freelancerId: userId ?? "" }],
+        OR: [
+          { clientId: userId ?? "" },
+          { freelancerId: userId ?? "" },
+          { arbiterId: userId ?? "" },
+        ],
       },
       select: { id: true },
     });

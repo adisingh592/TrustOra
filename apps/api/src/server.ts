@@ -2,6 +2,9 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildApp } from "./app.js";
+import { prisma } from "./db.js";
+import { validateProductionEnv } from "./serverConfig.js";
+import { installGracefulShutdown } from "./shutdown.js";
 
 const isTest = process.env.NODE_ENV === "test";
 
@@ -11,6 +14,7 @@ if (!isTest && existsSync(envFile)) process.loadEnvFile(envFile);
 
 const createApp = () => {
   try {
+    validateProductionEnv();
     return buildApp();
   } catch (err) {
     console.error(err instanceof Error ? err.message : "Could not start the API.");
@@ -22,7 +26,8 @@ export const app = createApp();
 
 if (!isTest) {
   try {
-    await app.listen({ port: Number(process.env.PORT) || 3001 });
+    await app.listen({ port: Number(process.env.PORT) || 3001, host: "0.0.0.0" });
+    installGracefulShutdown({ app, prisma });
   } catch (err) {
     app.log.error(err);
     process.exit(1);

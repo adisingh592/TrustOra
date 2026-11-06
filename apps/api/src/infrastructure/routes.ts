@@ -5,10 +5,12 @@ import {
   type IntegrationHealth,
   type IntegrationStatus,
   PublicProjectIdSchema,
+  type TaevaEvaluationReport,
 } from "@trustora/shared";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { sendError } from "../auth/routes.js";
 import { buildUnifiedTrustReport } from "../trustreport/report.js";
+import { computeTrustShieldReport } from "../trustshield/trustshield.js";
 
 export interface InfrastructureRouteDeps {
   prisma: PrismaClient;
@@ -85,26 +87,9 @@ export const infrastructureRoutes = async (app: FastifyInstance, deps: Infrastru
     return reply.send(response);
   });
 
-  /* -------------------------------------------------------------------------- */
-  /* GET /ready                                                                 */
-  /* -------------------------------------------------------------------------- */
-  app.get("/ready", async (_request, reply: FastifyReply) => {
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-    } catch {
-      return reply.code(503).send({
-        ok: false,
-        database: "disconnected",
-        timestamp: now().toISOString(),
-      });
-    }
-
-    return reply.send({
-      ok: true,
-      database: "connected",
-      timestamp: now().toISOString(),
-    });
-  });
+  // GET /ready lives in app.ts (it needs no auth/evaluation adapters, and every
+  // route registered here would otherwise collide with it: Fastify refuses two
+  // handlers on the same method and path).
 
   /* -------------------------------------------------------------------------- */
   /* GET /verify/:publicProjectId (Public Audit View)                           */
@@ -199,19 +184,53 @@ export const infrastructureRoutes = async (app: FastifyInstance, deps: Infrastru
       // Optional Unified Trust Report summary
       let trustReportSummary = null;
       try {
-        const trustReport = await buildUnifiedTrustReport({
+        const evaluations = project.milestones.flatMap((m) =>
+          m.submissions.flatMap((s) =>
+            s.evaluations.map((e) => JSON.parse(e.resultJson) as TaevaEvaluationReport),
+          ),
+        );
+        const trustShield = computeTrustShieldReport({
+          publicProjectId,
+          projectStatus: project.status as any,
+          milestones: project.milestones.map((m) => ({
+            id: m.id,
+            title: m.title,
+            deadline: m.deadline,
+            status: m.status as any,
+            agreementVersions: m.agreementVersions.map((v) => ({
+              version: v.version,
+              clientAcceptedAt: v.clientAcceptedAt,
+              freelancerAcceptedAt: v.freelancerAcceptedAt,
+            })),
+            submissions: m.submissions.map((s) => ({
+              id: s.id,
+              submittedAt: s.submittedAt,
+              status: s.status,
+            })),
+          })),
+          now: now(),
+        });
+        const trustReport = buildUnifiedTrustReport({
           publicProjectId,
           paymentMode: (project.paymentMode ?? "ARC_ESCROW") as any,
           projectStatus: project.status as any,
-          milestones: project.milestones as any,
-          events: events as any,
-          now,
+          now: now(),
+          evaluations,
+          totalMilestones: project.milestones.length,
+          totalVersions: Math.max(1, ...project.milestones.flatMap((m) => m.agreementVersions.map((v) => v.version))),
+          activeVersion: 1,
+          hasPendingProposals: false,
+          trustShieldReport: trustShield,
+          proofTrackEvents: events.map((e) => ({
+            verificationStatus: e.verificationStatus,
+            ecosystem: e.ecosystem,
+          })),
         });
         trustReportSummary = {
           verifiableReportHash: trustReport.verifiableReportHash,
-          trustShieldOverallRisk: trustReport.trustShield.overallRisk,
-          proofTrackTotalEvents: trustReport.proofTrack.totalEvents,
-          proofTrackVerifiedEvents: trustReport.proofTrack.verifiedEvents,
+          trustShieldOverallRisk: trustReport.trustShieldSummary.overallRisk,
+          proofTrackTotalEvents: trustReport.proofTrackSummary.totalEvents,
+          proofTrackVerifiedEvents: trustReport.proofTrackSummary.verifiedCount,
           generatedAt: trustReport.generatedAt,
         };
       } catch {

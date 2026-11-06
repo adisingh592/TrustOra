@@ -71,8 +71,9 @@ export const authRoutes = async (app: FastifyInstance, deps: AuthRouteDeps) => {
   const cookieOptions = {
     path: "/",
     httpOnly: true,
-    sameSite: "lax",
-    secure: config.isProduction,
+    sameSite: config.cookieSameSite ?? "lax",
+    // SameSite=None requires Secure even if a hand-built config omits cookieSecure.
+    secure: config.cookieSecure ?? (config.isProduction || config.cookieSameSite === "none"),
   } as const;
 
   app.setErrorHandler((error, request, reply) => {
