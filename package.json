@@ -1,15 +1,36 @@
 {
   "name": "trustora",
+  "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.33.0",
+  "description": "TRUSTORA — Programmable Trust Infrastructure for Human and AI-Driven Work",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev:api": "pnpm --filter @trustora/api dev",
-    "dev:web": "pnpm --filter @trustora/web dev",
-    "test": "pnpm -r --if-present run test",
-    "security:scan": "node scripts/secret-scan.mjs"
+    "test": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json node node_modules/tsx/dist/cli.mjs --test packages/evaluation/test/*.test.ts packages/og/test/*.test.ts packages/hedera/test/*.test.ts packages/prooftrack/test/*.test.ts packages/contracts/test/arcConfig.test.ts packages/contracts/test/escrowAbi.test.ts packages/contracts/test/deployPreflight.test.ts apps/web/test/*.test.ts && (cd packages/contracts && npx hardhat test test/TrustoraEscrow.test.js)",
+    "test:unit": "TSX_TSCONFIG_PATH=apps/web/tsconfig.json node node_modules/tsx/dist/cli.mjs --test packages/evaluation/test/*.test.ts packages/og/test/*.test.ts packages/hedera/test/*.test.ts packages/prooftrack/test/*.test.ts packages/contracts/test/arcConfig.test.ts packages/contracts/test/escrowAbi.test.ts packages/contracts/test/deployPreflight.test.ts apps/web/test/*.test.ts",
+    "test:contracts": "cd packages/contracts && npx hardhat test test/TrustoraEscrow.test.js",
+    "compile:contracts": "cd packages/contracts && npx hardhat compile",
+    "typecheck": "tsc --noEmit -p apps/web/tsconfig.json",
+    "lint": "npm run typecheck",
+    "dev": "cd apps/web && npm run dev",
+    "build": "cd apps/web && npm run build"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6",
-    "typescript": "^7.0.2"
+    "@types/node": "^20.14.2",
+    "tsx": "^4.15.5",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.32"
+    },
+    "ethers": {
+      "ws": "8.22.1"
+    }
   }
 }

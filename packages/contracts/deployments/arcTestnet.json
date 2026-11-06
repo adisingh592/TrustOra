@@ -1,0 +1,10 @@
+{
+  "network": "arcTestnet",
+  "chainId": 5042002,
+  "escrowContract": "0x1078D5bfcB9951eBAB112cfe5faE6B7aB3c5fd9b",
+  "usdcContract": "0x3600000000000000000000000000000000000000",
+  "deployer": "0x7aB8aaf21002Cf0A72B67C6F5b151781D2Dd8701",
+  "deploymentTxHash": "0x82686207339a2391755a8de3b2114678e873c0cdc825828eb1ee96b81620c964",
+  "deployedAt": "2026-11-06T13:33:52.342Z",
+  "verified": true
+}

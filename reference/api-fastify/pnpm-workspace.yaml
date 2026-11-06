@@ -1,0 +1,15 @@
+packages:
+  - "api"
+  - "shared"
+  - "prooftrack"
+  - "security"
+  - "arkiv"
+  - "tests-security"
+  - "web-test-ui"
+
+# pnpm 10 blocks dependency install scripts unless they are listed here.
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - esbuild
+  - prisma

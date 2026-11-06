@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id              String    @id @default(cuid())
+  walletAddress   String    @unique
+  role            String    @default("CLIENT") // CLIENT, FREELANCER, ARBITER
+  displayName     String?
+  reputationScore Float     @default(100.0)
+  createdAt       DateTime  @default(now())
+}
+
+model Project {
+  id                    String              @id // TRU-PROJ-YYYY-NNNNNNN
+  title                 String
+  description           String
+  clientAddress         String
+  freelancerAddress     String?
+  arbiterAddress        String?
+  status                String              @default("DRAFT") // DRAFT, AGREED, FUNDED, IN_PROGRESS, COMPLETED, DISPUTED
+  /// Exact USDC base units (6 decimals), stored as a decimal string for SQLite portability.
+  budgetUsdc            String
+  escrowContractAddress String?
+  registerTxHash        String?             // verified createProject tx on Arc
+  arcChainId            Int                 @default(5042002)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  publishedAt           DateTime?
+  requiredSkills        String?
+  expectedDurationDays  Int?
+  agreementVersions     AgreementVersion[]
+  milestones            Milestone[]
+  proofTrackEvents      ProofTrackEventRecord[]
+  applications          ProjectApplication[]
+}
+
+model AgreementVersion {
+  id                  String    @id @default(cuid())
+  projectId           String
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionNumber       Int       @default(1)
+  criteriaJson        String    // JSON array of structured criteria
+  criteriaHash        String    // SHA-256
+  clientAccepted      Boolean   @default(false)
+  clientSignature     String?
+  freelancerAccepted  Boolean   @default(false)
+  freelancerSignature String?
+  isLocked            Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+}
+
+model Milestone {
+  id               String       @id @default(cuid())
+  projectId        String
+  project          Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestoneIndex   Int
+  title            String
+  description      String?
+  /// Exact USDC base units (6 decimals), stored as a decimal string for SQLite portability.
+  amountUsdc       String
+  state            String       @default("UNFUNDED") // UNFUNDED, FUNDED, SUBMITTED, REVISION_REQUESTED, APPROVED, RELEASED, DISPUTED, REFUNDED
+  criteriaHash     String?
+  addTxHash        String?      // verified addMilestone tx on Arc
+  fundingTxHash    String?
+  releaseTxHash    String?
+  fundedAt         DateTime?
+  releasedAt       DateTime?
+  submissions      Submission[]
+}
+
+model Submission {
+  id               String            @id @default(cuid())
+  milestoneId      String
+  milestone        Milestone         @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  version          Int               @default(1)
+  deliverableHash  String            // SHA-256
+  deliverableUri   String?
+  contentSummary   String?
+  content          String?           // full deliverable text (what the evaluator reads)
+  anchorTxHash     String?           // verified submitMilestoneWork tx that anchored this exact hash on Arc
+  notes            String?
+  submittedAt      DateTime          @default(now())
+  evaluations      EvaluationReport[]
+}
+
+model EvaluationReport {
+  id                  String         @id @default(cuid())
+  submissionId        String
+  submission          Submission     @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  overallVerdict      String         // PASS, PARTIAL, FAIL, UNABLE_TO_ASSESS
+  inferenceRequestId  String?
+  requestIdSource     String?
+  providerAddress     String?
+  teeVerified         Boolean?
+  teeVerifiedBy       String?
+  modelId             String?
+  criteriaResultsJson String
+  findingsJson        String
+  reportHash          String
+  promptHash          String
+  advisoryNotice      String         @default("ADVISORY_ONLY_CANNOT_RELEASE_FUNDS")
+  createdAt           DateTime       @default(now())
+  agentPayments       AgentPayment[]
+}
+
+model AgentPayment {
+  id               String            @id @default(cuid())
+  idempotencyKey   String            @unique
+  evaluationId     String?
+  evaluation       EvaluationReport? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  serviceName      String            // e.g. "Security Scanner"
+  providerAccount  String            // e.g. "0.0.482910"
+  /// Exact HBAR tinybars, stored as a decimal string for SQLite portability.
+  amountTinybars    String
+  txId             String?
+  status           String            // SETTLED, REJECTED_POLICY, NOT_CONFIGURED
+  hashscanUrl      String?
+  policyDecision   String
+  settledAt        DateTime?
+  createdAt        DateTime          @default(now())
+}
+
+model ProofTrackEventRecord {
+  id                 String    @id @default(cuid())
+  projectId          String
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sequence           Int
+  ecosystem          String    // ARC, ZERO_G, HEDERA, TRUSTORA_CORE
+  eventType          String
+  referenceType      String
+  referenceValue     String
+  explorerUrl        String?
+  verificationStatus String    @default("PENDING")
+  timestamp          DateTime  @default(now())
+
+  // A given reference (e.g. a tx hash) is recorded at most once per project; sequences never collide.
+  @@unique([projectId, referenceType, referenceValue])
+  @@unique([projectId, sequence])
+}
+
+model ProjectApplication {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applicantAddress String
+  message         String?
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED, WITHDRAWN
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([projectId, applicantAddress])
+  @@index([applicantAddress])
+}
+
+
+// Wallet authentication: single-use nonces and server-side sessions (only a SHA-256 of the cookie token is stored).
+model AuthNonce {
+  nonce     String   @id
+  address   String?  // bound to a wallet when issued for a specific address
+  role      String?  // CLIENT or FREELANCER; required for new wallet registration
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+model Session {
+  id        String   @id // sha256 hex of the random session token held in the httpOnly cookie
+  address   String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([address])
+}
+
+model RateLimitBucket {
+  key           String   @id
+  windowStarted BigInt
+  requestCount  Int
+  updatedAt     DateTime @updatedAt
+}

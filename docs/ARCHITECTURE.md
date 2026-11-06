@@ -1,78 +1,46 @@
-# Architecture
+# TRUSTORA architecture
 
-SQLite is the default database for the sprint.
-Use Postgres only if one is already running.
+TRUSTORA is a modular monorepo for wallet-authenticated milestone agreements and escrow. Its implemented application path combines off-chain project records, client-signed Arc transactions when configured, optional advisory 0G evaluation, and application evidence records.
 
-## What is built, in progress, and not built
-
-This is a living project; check `docs/STATUS-M2.md` for the detailed, evidence-based audit of every module. In short:
-
-- **Built and tested:** wallet sign-in (SIWE-style), projects and locked agreement versions, ProofTrack's event/timeline/verification core, the Arkiv public evidence anchor (optional, off by default), ScopeGuard, TrustShield, the unified trust report, and TAEVA's advisory evaluation (honest about whether a real AI model ran — see "TAEVA honesty" below).
-- **In progress:** `GET /infrastructure`, a public `GET /verify/:id` audit view, the milestone funding/deliverable-upload/submission/release flow, and an env-driven factory (`apps/api/src/adapters/loader.ts`) that will load the real chain and 0G adapters once M1 and M3's packages are ready — see `docs/INTEGRATION-HANDOFF.md`.
-- **Not built:** the real Arc escrow contract and chain adapter (M1), the real 0G evaluation adapter (M3), Hedera agent payments (stretch).
-
-## API and ProofTrack events
-
-See `docs/API.md` for the full endpoint list, request/response shapes, and error codes.
-
-ProofTrack records one event per significant step, each with an `ecosystem`, a `referenceType`, and a `verificationStatus` that starts `PENDING` and only becomes `VERIFIED` once the backend has independently checked it against the matching adapter:
-
-| Event type | Ecosystem | Reference type |
-| --- | --- | --- |
-| `MILESTONE_FUNDED` | `ARC` | `BLOCKCHAIN_TRANSACTION_HASH` |
-| `WORK_SUBMITTED` | `ARC` | `BLOCKCHAIN_TRANSACTION_HASH` |
-| `MILESTONE_APPROVED` | `ARC` | `BLOCKCHAIN_TRANSACTION_HASH` |
-| `PAYMENT_RELEASED` | `ARC` | `BLOCKCHAIN_TRANSACTION_HASH` |
-| `EVALUATION_COMPLETED` | `ZERO_G` | `INFERENCE_REQUEST_ID` |
-| `AGREEMENT_ACCEPTED_CLIENT` / `AGREEMENT_ACCEPTED_FREELANCER` | `APPLICATION` | `APPLICATION_EVENT_ID` |
-| `AGENT_PAYMENT_SETTLED` | `HEDERA` | `FACILITATOR_SETTLEMENT_ID` |
-| `AGENT_PAYMENT_DENIED` | `HEDERA` | `APPLICATION_EVENT_ID` |
-| `EVIDENCE_ANCHORED` | `ARKIV` | `STORAGE_REFERENCE` |
-
-A reference type is never reused across ecosystems for a different kind of proof — a 0G inference ID can never be stored or read as a transaction hash, and vice versa.
-
-## Adapter diagram
-
+```mermaid
+flowchart LR
+  C[Client wallet] --> W[Next.js App Router]
+  F[Freelancer wallet] --> W
+  W --> A[Nonce and session auth]
+  W --> DB[(SQLite via Prisma)]
+  W -->|client-signed transactions| ARC[Arc Testnet escrow contract<br/>not deployed/configured]
+  W -->|optional provider request<br/>not live-verified| OG[0G Inference Router]
+  W --> PT[ProofTrack timeline]
+  H[Hedera x402<br/>not implemented] -. planned .-> PT
 ```
-                    apps/api
-                       │
-         ┌─────────────┼──────────────┐
-         │              │              │
-  EscrowAdapter   EvaluationAdapter  AnchorAdapter
-  (packages/shared interfaces, implemented per adapter)
-         │              │              │
-   packages/arc   packages/evaluation  packages/arkiv
-   (M1, real;      (M3, real;          (M2, real —
-    MOCK_ChainAdapter   heuristic        optional, off
-    used until ready)   fallback used    unless ARKIV_*
-                         until ready)    is configured)
-```
-`apps/api/src/adapters/loader.ts` picks the real or mock chain/evaluation adapter from env (`CHAIN_ADAPTER`, `EVALUATION_ADAPTER` — see `docs/INTEGRATION-HANDOFF.md`). The Arkiv anchor adapter is loaded separately and is always optional.
 
-## TAEVA honesty
+## Components
 
-TAEVA's advisory evaluation never fabricates an AI result. Every report carries `evaluationSource` (`DETERMINISTIC_HEURISTIC` or `ZERO_G_INFERENCE`) and `isAI`. When no real 0G adapter is configured or healthy, the report is explicitly `DETERMINISTIC_HEURISTIC`/`isAI: false`, with an empty `requestId` and a plain-language `evaluationNote` — and, critically, **no ProofTrack event is recorded** for it, because there is no independent evidence to record. Only a report produced by a real adapter call becomes a `VERIFIED` `EVALUATION_COMPLETED` event.
+- `apps/web`: Next.js 16 App Router, React 18, Wagmi 3, Viem, Prisma, and SQLite. Wallet sessions establish identity; database records determine client, freelancer, and arbiter access. SQLite fixed-window throttles cover nonce issuance and authenticated mutations; these are not a general edge/network rate limiter.
+- `packages/contracts`: Solidity `TrustoraEscrow`, Hardhat configuration, Arc testnet parameters, deployment preflight/deployment scripts, and local contract tests. The contract is tested locally but has no deployment address configured in this release.
+- `packages/og`: 0G Router and broker clients. Router inference requires credentials and a genuine provider response/request ID. No live inference was verified. Broker fallback is not equivalent to live 0G inference.
+- `packages/evaluation`: criterion-bound structured evaluation, output validation, advisory verdicts, and prompt-injection resistance. Tests use controlled mock providers.
+- `packages/hedera`: x402 parsing, tinybar conversion, policy/Mirror Node verification helpers, and an application persistent reservation helper. These are primitives; end-to-end facilitator-backed HBAR payments are not implemented, and the reservation helper is not yet part of a settled payment workflow.
+- `packages/prooftrack`: event taxonomy, sequence/timeline helpers, and explorer URL mapping. Arc events receive verified status only through the application's independent receipt/event/state checks. There is no public verification portal.
 
-## Milestone IDs
+## Workflow and trust boundaries
 
-`onchainMilestoneId` is an M2 decision: a 0x-prefixed 32-byte hex string, `keccak256` of the UTF-8 bytes of the internal (database) milestone id. M1 and M4 must derive it identically — see `docs/INTEGRATION-HANDOFF.md`.
+1. The client creates a project and criteria. Wallet identity comes from a nonce-verified session.
+2. The assigned freelancer accepts the agreement with a wallet signature. Database role checks gate application actions.
+3. The client may register and fund milestones through wallet-signed Arc transactions only when a valid escrow address is configured. Server verification reads receipts and contract state; it does not submit user transactions.
+4. The freelancer submits work. The application stores a SHA-256 digest and can anchor it on-chain when Arc is configured.
+5. The client may request an advisory 0G evaluation. Evaluation cannot call escrow methods or authorize payment.
+6. The client decides whether to release; an authorized arbiter can resolve a dispute through the contract. The browser wallet signs either transaction.
 
-## Agreement immutability
+## Evidence levels
 
-`AgreementVersion` rows are immutable once any acceptance is recorded, enforced by SQLite triggers (not by Prisma's own schema tracking) created across several migrations. A migration that rebuilds that table must recreate the triggers, or they're silently lost — this has already happened once and was caught by a test that queries `sqlite_master` directly after every migration.
-
-## How to run the manual database check
-
-Run `pnpm --filter @trustora/api db:check` from the repo root.
-It uses a temporary SQLite file, deletes it afterwards, and never writes to `prisma/dev.db`.
-It prints PASS or FAIL per check and exits 0 only if everything passed.
-
-## Folder ownership
-
-| Member | Owns |
+| Evidence | Meaning |
 | --- | --- |
-| M1 | `contracts`, `packages/arc` |
-| M2 | `apps/api`, `packages/shared`, `packages/prooftrack` |
-| M3 | `packages/og`, `packages/evaluation` |
-| M4 | `apps/web`, `README.md` |
-| M5 | `packages/security`, `tests/security` |
+| Arc `VERIFIED` event | Receipt, contract address, expected log, transaction roles/identifiers, and contract state were independently checked by application code. No live deployment is currently configured. |
+| 0G request ID/report | Provider response evidence; a request ID is not a blockchain transaction or independent proof of model correctness. Current tests mock providers. |
+| Application event | Database-backed workflow record; not independently anchored unless accompanied by a separately verified chain event. |
+| Hedera settlement | Not available: payment execution is not implemented. |
+
+## Technology and runtime
+
+The repository uses npm workspaces. The web app currently targets Node.js 20.9 or newer for Next.js 16, Solidity 0.8.24, Arc Testnet chain ID 5042002, and SQLite/Prisma. See the root README for setup and tested commands.
