@@ -67,7 +67,7 @@ Status values:
 | Timeline Query (`GET /projects/:id/prooftrack`) | IMPLEMENTED | `apps/api/src/prooftrack/routes.ts`, includes formatted `explorerUrl` for blockchain events. |
 | Single Event Verification (`POST .../events/:id/verify`) | IMPLEMENTED | `apps/api/src/prooftrack/routes.ts` |
 | Public Audit Verification (`GET /verify/:publicProjectId`) | IMPLEMENTED | `apps/api/src/infrastructure/routes.ts`, provides sanitized public audit timeline without auth. |
-| Arkiv Public Anchoring (`POST .../events/:id/anchor`) | IMPLEMENTED | `packages/arkiv`, optional, enabled when `ARKIV_ENABLED=true`. |
+| Arkiv Public Anchoring (`POST .../events/:id/anchor`) | BLOCKED (LIVE) / IMPLEMENTED (MOCK) | Optional public hash anchor that expires. Fully implemented & tested with test doubles (86 tests in `packages/arkiv`, 41 tests in `anchor.test.ts`). Live testnet write BLOCKED: requires developer access key and faucet-funded tGLM testnet account from https://hub.arkiv.network/faucet (ARKIV_ACCESS_KEY and ARKIV_PRIVATE_KEY unconfigured in environment). |
 
 ---
 

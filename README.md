@@ -174,6 +174,21 @@ Remaining work before claiming live Hedera:
 
 Status: **partial primitives and tests; live facilitator-backed settlement is not implemented in the web application.**
 
+### Arkiv (Optional / Planned)
+
+**Responsibility:** optional public hash anchor that expires, anchoring verified ProofTrack evidence hashes to the Arkiv Rabdi testnet.
+
+Implemented in reference engine (`reference/api-fastify/arkiv`):
+- Strict hash-only payload (`AnchorPayloadSchema`): `projectId`, `eventType`, `eventDigest` (SHA-256 of canonical event JSON), `subjectDigest`, `network`, `reference`, `occurredAt`.
+- Forbidden data rejection: deliverable contents, file names, criteria text, titles, descriptions, personal data, and private keys are strictly blocked.
+- Reference type separation: `STORAGE_REFERENCE` (`ARKIV_ENTITY_REF`) is strictly separated from transaction hashes.
+- Expiration: public records expire by block height (e.g. 30 days) and are not permanent or immutable.
+- Adapter interface: `publishAnchor` and `readAnchor` with `toAnchorError` sanitization (never leaking access keys in RPC URLs).
+- Verifier: re-reads the entity from Arkiv and compares owner address and event digest against database records.
+- 86 package unit tests + 41 API integration tests with test doubles (`MOCK_AnchorAdapter`).
+
+Status: **Optional / Planned (Tested with mocks). Live testnet write is BLOCKED pending developer access key and faucet-funded tGLM testnet wallet.**
+
 ## ProofTrack
 
 ProofTrack stores the evidence timeline across Arc, 0G, Hedera, and TRUSTORA events.
