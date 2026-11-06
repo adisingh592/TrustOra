@@ -5,6 +5,8 @@ import {
   CreateProjectBodySchema,
   EvaluationResultSchema,
   PositiveAmountSchema,
+  ProofEventExpectedSchema,
+  RecordProofEventInputSchema,
   ProjectStatusSchema,
   ProofEventSchema,
   PublicProjectIdSchema,
@@ -216,5 +218,63 @@ describe("project input schemas", () => {
     for (const id of ["TRU-PROJ-2026-104", "TRU-PROJ-2025-0001042", "x"]) {
       expect(PublicProjectIdSchema.safeParse(id).success).toBe(false);
     }
+  });
+});
+
+describe("ProofTrack input schemas", () => {
+  const input = {
+    publicProjectId: "TRU-PROJ-2026-0001042",
+    occurredAt: "2026-01-01T00:00:00Z",
+    ecosystem: "ARC",
+    network: "Arc Testnet",
+    chainId: 5042002,
+    eventType: "MILESTONE_FUNDED",
+    referenceType: "BLOCKCHAIN_TRANSACTION_HASH",
+    referenceValue: `0x${"a".repeat(64)}`,
+  };
+
+  it("accepts valid input, normalises the time and defaults expected to empty", () => {
+    const parsed = RecordProofEventInputSchema.parse(input);
+    expect(parsed.occurredAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(parsed.expected).toEqual({});
+  });
+
+  it.each([
+    ["publicProjectId", "not-a-project"],
+    ["occurredAt", "yesterday"],
+    ["ecosystem", "SOLANA"],
+    ["eventType", "MADE_UP"],
+    ["referenceType", "MADE_UP"],
+    ["network", " "],
+    ["chainId", 1.5],
+  ])("rejects a bad %s", (field, value) => {
+    expect(RecordProofEventInputSchema.safeParse({ ...input, [field]: value }).success).toBe(false);
+  });
+
+  it("a caller cannot set a status or anything else extra", () => {
+    for (const extra of [{ verificationStatus: "VERIFIED" }, { lastCheckedAt: "x" }, { id: "x" }]) {
+      expect(RecordProofEventInputSchema.safeParse({ ...input, ...extra }).success).toBe(false);
+    }
+  });
+
+  it("expected lowercases addresses and hashes", () => {
+    const parsed = ProofEventExpectedSchema.parse({
+      agreementHash: "A".repeat(64),
+      onchainMilestoneId: `0x${"B".repeat(64)}`,
+      freelancerWallet: "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+    });
+    expect(parsed.agreementHash).toBe("a".repeat(64));
+    expect(parsed.onchainMilestoneId).toBe(`0x${"b".repeat(64)}`);
+    expect(parsed.freelancerWallet).toBe("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed");
+  });
+
+  it.each([
+    ["a number amount", { amountBaseUnits: 50000000 }],
+    ["a decimal amount", { amountBaseUnits: "1.5" }],
+    ["a short hash", { agreementHash: "abc" }],
+    ["a bad address", { tokenAddress: "0x1234" }],
+    ["a file path", { privateFilePath: "/private/file.zip" }],
+  ])("expected rejects %s", (_label, expected) => {
+    expect(ProofEventExpectedSchema.safeParse(expected).success).toBe(false);
   });
 });

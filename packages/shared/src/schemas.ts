@@ -205,3 +205,47 @@ export const AcceptAgreementBodySchema = z
   .object({ version: z.number().int().positive() })
   .strict();
 export type AcceptAgreementBody = z.infer<typeof AcceptAgreementBodySchema>;
+
+const HEX_32_BYTES = /^(0x)?[0-9a-fA-F]{64}$/;
+const Hash32Schema = z
+  .string()
+  .regex(HEX_32_BYTES, "must be 32 bytes of hex")
+  .transform((value) => value.toLowerCase());
+
+/**
+ * What a verifier must compare against, supplied by server code from our own
+ * database. Strict, so nothing else, such as a file path, can be stored here.
+ */
+export const ProofEventExpectedSchema = z
+  .object({
+    onchainMilestoneId: Hash32Schema.optional(),
+    amountBaseUnits: PositiveAmountSchema.optional(),
+    tokenAddress: WalletAddressSchema.optional(),
+    clientWallet: WalletAddressSchema.optional(),
+    freelancerWallet: WalletAddressSchema.optional(),
+    arbiterWallet: WalletAddressSchema.optional(),
+    agreementHash: Hash32Schema.optional(),
+    deliverableSha256: Hash32Schema.optional(),
+  })
+  .strict();
+export type ProofEventExpected = z.output<typeof ProofEventExpectedSchema>;
+
+/** Input for recording an event. Server code only: no route accepts this. */
+export const RecordProofEventInputSchema = z
+  .object({
+    publicProjectId: PublicProjectIdSchema,
+    milestoneId: z.string().min(1).max(100).optional(),
+    occurredAt: z
+      .string()
+      .datetime({ message: "must be an ISO 8601 UTC time" })
+      .transform((value) => new Date(value).toISOString()),
+    ecosystem: EcosystemSchema,
+    network: z.string().trim().min(1).max(100),
+    chainId: z.number().int().positive().optional(),
+    eventType: ProofEventTypeSchema,
+    referenceType: ReferenceTypeSchema,
+    referenceValue: z.string(),
+    expected: ProofEventExpectedSchema.default({}),
+  })
+  .strict();
+export type RecordProofEventInput = z.output<typeof RecordProofEventInputSchema>;
