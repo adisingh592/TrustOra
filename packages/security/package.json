@@ -5,6 +5,11 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@trustora/shared": "workspace:*"
+    "@trustora/shared": "workspace:*",
+    "fflate": "^0.8.3",
+    "viem": "^2.57.16"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
   }
 }

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Enable once per clone: git config core.hooksPath .githooks
+# Blocks a commit if the staged content looks like it contains a secret.
+exec node "$(git rev-parse --show-toplevel)/scripts/secret-scan.mjs" --staged
