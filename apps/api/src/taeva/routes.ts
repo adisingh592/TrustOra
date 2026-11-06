@@ -71,6 +71,15 @@ export const taevaRoutes = async (app: FastifyInstance, deps: TaevaRouteDeps) =>
         );
       }
 
+      if (!submission.aiConsent) {
+        return sendError(
+          reply,
+          400,
+          "AI_CONSENT_REQUIRED",
+          "AI evaluation requires explicit consent from the freelancer.",
+        );
+      }
+
       const agreementVersion = milestone.agreementVersions[0];
       if (!agreementVersion) {
         return sendError(
