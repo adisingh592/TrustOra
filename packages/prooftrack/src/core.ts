@@ -50,11 +50,6 @@ export interface ProofTrack {
   verifyProject(publicProjectId: string, verifiers: Verifiers): Promise<StoredEvent[]>;
 }
 
-const compareEvents = (a: StoredEvent, b: StoredEvent) =>
-  a.occurredAt.getTime() - b.occurredAt.getTime() ||
-  a.createdAt.getTime() - b.createdAt.getTime() ||
-  (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-
 /** One short line, so a verifier's reason cannot carry a stack trace. */
 const cleanReason = (reason: unknown, fallback: string) => {
   if (typeof reason !== "string") return fallback;
@@ -84,6 +79,9 @@ const toUpdate = (result: VerifierResult, now: Date): VerificationUpdate => {
   if (result.outcome === "MATCH") return update("VERIFIED", null, lastCheckedAt);
   if (result.outcome === "MISMATCH") {
     return update("FAILED", cleanReason(result.reason, "The check found a mismatch."), null);
+  }
+  if (result.outcome === "BLOCKED") {
+    return update("BLOCKED", cleanReason(result.reason, "The required integration is unavailable."), null);
   }
   return update("PENDING", cleanReason(result.reason, CHECK_FAILED_REASON), null);
 };
@@ -210,8 +208,11 @@ export const createProofTrack = (options: ProofTrackOptions): ProofTrack => {
   return {
     recordEvent,
 
-    async getTimeline(publicProjectId) {
-      const events = await store.listByProject(publicProjectId);
+    async getTimeline(publicProjectId, filter) {
+      let events = await store.listByProject(publicProjectId);
+      if (filter?.milestoneId !== undefined) {
+        events = events.filter((e) => e.milestoneId === filter.milestoneId);
+      }
       return [...events].sort(compareEvents).map(toTimelineItem);
     },
 

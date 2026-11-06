@@ -89,15 +89,18 @@ export const proofTrackRoutes = async (app: FastifyInstance, deps: ProofTrackRou
       "This project was checked a moment ago. Please wait 10 seconds and try again.",
     );
 
-  const timeline = async (publicProjectId: string) => ({
+  const timeline = async (publicProjectId: string, milestoneId?: string) => ({
     projectId: publicProjectId,
-    events: await proofTrack.getTimeline(publicProjectId),
+    events: await proofTrack.getTimeline(publicProjectId, milestoneId ? { milestoneId } : undefined),
   });
 
-  app.get<{ Params: { id: string } }>("/projects/:id/prooftrack", async (request, reply) => {
-    if (!(await isParticipant(request.params.id, request.userId))) return notFound(reply);
-    return timeline(request.params.id);
-  });
+  app.get<{ Params: { id: string }; Querystring: { milestoneId?: string } }>(
+    "/projects/:id/prooftrack",
+    async (request, reply) => {
+      if (!(await isParticipant(request.params.id, request.userId))) return notFound(reply);
+      return timeline(request.params.id, request.query.milestoneId);
+    },
+  );
 
   app.post<{ Params: { id: string } }>("/projects/:id/prooftrack/verify", async (request, reply) => {
     if (!(await isParticipant(request.params.id, request.userId))) return notFound(reply);

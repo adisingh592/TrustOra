@@ -11,5 +11,14 @@ export {
   type ProofTrackOptions,
   verifierKey,
 } from "./core.js";
+export { compareEvents, sortEvents } from "./ordering.js";
+export { buildTimeline, explorerUrlFor, toTimelineItem } from "./timeline.js";
+export { validateEventInput, type ValidatedEventInput } from "./events.js";
+export {
+  cleanReason,
+  createApplicationEventVerifier,
+  createInferenceVerifier,
+  toVerificationUpdate,
+} from "./verification.js";
 export { createChainVerifier } from "./chainVerifier.js";
 export { MOCK_ChainAdapter, type MOCK_ChainAdapterOptions, MOCK_InMemoryEventStore } from "./mocks.js";

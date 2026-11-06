@@ -293,6 +293,24 @@ describe("GET /projects/:id/prooftrack", () => {
     await recordFunded(first.project.id, first.freelancer.address, first.project.milestones[0].onchainMilestoneId);
     expect((await get(second.client, second.url)).json().events).toEqual([]);
   });
+
+  it("filters events by milestoneId when passed as query parameter", async () => {
+    const { client, freelancer, project, url } = await setup();
+    const milestoneId = project.milestones[0].id;
+    const funded = await recordFunded(project.id, freelancer.address, project.milestones[0].onchainMilestoneId);
+    await prisma.proofEvent.update({ where: { id: funded.id }, data: { milestoneId } });
+    await recordInference(project.id);
+
+    const allRes = await get(client, url);
+    expect(allRes.json().events).toHaveLength(2);
+
+    const filteredRes = await get(client, `${url}?milestoneId=${milestoneId}`);
+    expect(filteredRes.json().events).toHaveLength(1);
+    expect(filteredRes.json().events[0].id).toBe(funded.id);
+
+    const nonExistentRes = await get(client, `${url}?milestoneId=other-milestone`);
+    expect(nonExistentRes.json().events).toHaveLength(0);
+  });
 });
 
 describe("no way to create an event", () => {
