@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { keccak256, stringToBytes } from "viem";
+import { keccak256, toBytes } from "viem";
 
 /** bytes32 key for the escrow contract: keccak256 of the milestone id's UTF-8 bytes. */
 export const computeOnchainMilestoneId = (milestoneId: string) =>
-  keccak256(stringToBytes(milestoneId));
+  keccak256(toBytes(milestoneId));
 
 /** JSON with object keys sorted at every level. Array order is kept. */
 export const canonicalJson = (value: unknown): string => {

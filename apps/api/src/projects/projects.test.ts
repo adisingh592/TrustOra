@@ -3,7 +3,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { keccak256, stringToBytes } from "viem";
+import { keccak256, stringToBytes, toBytes } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { buildApp as BuildApp } from "../app.js";
@@ -191,8 +191,13 @@ describe("POST /projects", () => {
   it.each([
     ["zero", "0"],
     ["negative", "-1"],
+    ["negative five", "-5"],
     ["decimal", "1.5"],
     ["leading zeros", "007"],
+    ["leading zero fifty", "050"],
+    ["non-numeric", "abc"],
+    ["empty string", ""],
+    ["30+ digits", "9".repeat(31)],
     ["above the maximum", "1000000000000001"],
     ["a number", 50000000],
     ["scientific notation", "1e6"],
@@ -242,8 +247,13 @@ describe("POST /projects", () => {
     ["bad freelancer wallet", { freelancerWallet: "0x1234" }],
     ["bad arbiter wallet", { arbiterWallet: "nope" }],
     ["no milestones", { milestones: [] }],
+    ["too many milestones", { milestones: Array.from({ length: 11 }, (_, i) => milestoneInput({ title: `m${i}` })) }],
     ["past deadline", { milestones: [milestoneInput({ deadline: "2020-01-01T00:00:00.000Z" })] }],
     ["no criteria", { milestones: [milestoneInput({ criteria: [] })] }],
+    ["too many criteria", { milestones: [milestoneInput({ criteria: Array.from({ length: 11 }, (_, i) => `c${i}`) })] }],
+    ["criteria item too long", { milestones: [milestoneInput({ criteria: ["x".repeat(501)] })] }],
+    ["title too long", { title: "x".repeat(121) }],
+    ["description too long", { description: "x".repeat(2001) }],
   ])("rejects %s", async (_label, over) => {
     const client = await signIn();
     const res = await post(client, "/projects", projectInput(walletOnly(), over));
@@ -297,6 +307,11 @@ describe("onchainMilestoneId", () => {
     expect(computeOnchainMilestoneId("milestone")).toBe(
       keccak256(new TextEncoder().encode("milestone")),
     );
+  });
+
+  it("matches keccak256 with toBytes", () => {
+    const id = "test-milestone-id";
+    expect(computeOnchainMilestoneId(id)).toBe(keccak256(toBytes(id)));
   });
 
   it("stays the same across agreement versions", async () => {
@@ -406,6 +421,19 @@ describe("access", () => {
 });
 
 describe("POST /projects/:id/agreement/accept", () => {
+  it("rejects an accept attempt by the arbiter", async () => {
+    const client = await signIn();
+    const arbiter = await signIn();
+    const res = await post(
+      client,
+      "/projects",
+      projectInput(walletOnly(), { arbiterWallet: arbiter.address }),
+    );
+    const projectId = res.json().id;
+    const acceptRes = await post(arbiter, `/projects/${projectId}/agreement/accept`, { version: 1 });
+    expect(acceptRes.statusCode).toBe(404);
+  });
+
   it("both accepting the latest version moves the project and milestones to AGREED", async () => {
     const { client, freelancer, url } = await setup();
     const first = await post(client, `${url}/agreement/accept`, { version: 1 });

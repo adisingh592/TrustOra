@@ -5,6 +5,7 @@ import {
   CreateProjectBodySchema,
   EvaluationResultSchema,
   PositiveAmountSchema,
+  ProjectStatusSchema,
   ProofEventSchema,
   PublicProjectIdSchema,
   WalletAddressSchema,
@@ -135,13 +136,17 @@ describe("project input schemas", () => {
   it.each([
     ["0"],
     ["-1"],
+    ["-5"],
     ["1.5"],
     ["007"],
+    ["050"],
+    ["abc"],
     [""],
     [" 1"],
     ["1e6"],
     ["0x10"],
     ["1000000000000001"],
+    ["9".repeat(31)],
     ["9".repeat(79)],
     [1500000],
   ])("rejects amount %s", (amount) => {
@@ -180,11 +185,22 @@ describe("project input schemas", () => {
 
   it.each([
     ["no milestones", { milestones: [] }],
+    ["too many milestones", { milestones: Array.from({ length: 11 }, (_, i) => ({ ...milestone, title: `m${i}` })) }],
     ["empty title", { title: "   " }],
+    ["title too long", { title: "x".repeat(121) }],
+    ["description too long", { description: "x".repeat(2001) }],
     ["no criteria", { milestones: [{ ...milestone, criteria: [] }] }],
+    ["too many criteria", { milestones: [{ ...milestone, criteria: Array.from({ length: 11 }, (_, i) => `c${i}`) }] }],
+    ["criteria item too long", { milestones: [{ ...milestone, criteria: ["x".repeat(501)] }] }],
     ["bad deadline", { milestones: [{ ...milestone, deadline: "tomorrow" }] }],
   ])("rejects %s", (_label, change) => {
     expect(CreateProjectBodySchema.safeParse({ ...body, ...change }).success).toBe(false);
+  });
+
+  it("validates ProjectStatusSchema", () => {
+    expect(ProjectStatusSchema.safeParse("DRAFT").success).toBe(true);
+    expect(ProjectStatusSchema.safeParse("AGREED").success).toBe(true);
+    expect(ProjectStatusSchema.safeParse("INVALID").success).toBe(false);
   });
 
   it("accept body takes a positive whole version and nothing else", () => {

@@ -183,9 +183,6 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
       return sendError(reply, 400, "SAME_WALLET", "The arbiter must be different from the client and freelancer.");
     }
 
-    const freelancer = await upsertUserByWallet(prisma, input.freelancerWallet);
-    const arbiter = await upsertUserByWallet(prisma, input.arbiterWallet);
-
     const milestones = input.milestones.map((milestone) => {
       // Generated here because the on-chain key is derived from it.
       const id = randomUUID();
@@ -215,31 +212,35 @@ export const projectRoutes = async (app: FastifyInstance, deps: ProjectRouteDeps
         ),
       });
       try {
-        const created = await prisma.project.create({
-          data: {
-            publicProjectId,
-            title: input.title,
-            description: input.description,
-            clientId: client.id,
-            freelancerId: freelancer.id,
-            arbiterId: arbiter.id,
-            status: DRAFT,
-            milestones: {
-              create: milestones.map((m) => ({
-                id: m.id,
-                onchainMilestoneId: m.onchainMilestoneId,
-                title: m.title,
-                amountBaseUnits: m.amount,
-                tokenAddress,
-                tokenDecimals: USDC_DECIMALS,
-                deadline: new Date(m.deadline),
-                status: DRAFT,
-                agreementVersions: { create: { version: 1, criteriaJson, agreementHash } },
-              })),
+        const created = await prisma.$transaction(async (tx) => {
+          const freelancer = await upsertUserByWallet(tx, input.freelancerWallet);
+          const arbiter = await upsertUserByWallet(tx, input.arbiterWallet);
+          return tx.project.create({
+            data: {
+              publicProjectId,
+              title: input.title,
+              description: input.description,
+              clientId: client.id,
+              freelancerId: freelancer.id,
+              arbiterId: arbiter.id,
+              status: DRAFT,
+              milestones: {
+                create: milestones.map((m) => ({
+                  id: m.id,
+                  onchainMilestoneId: m.onchainMilestoneId,
+                  title: m.title,
+                  amountBaseUnits: m.amount,
+                  tokenAddress,
+                  tokenDecimals: USDC_DECIMALS,
+                  deadline: new Date(m.deadline),
+                  status: DRAFT,
+                  agreementVersions: { create: { version: 1, criteriaJson, agreementHash } },
+                })),
+              },
             },
-          },
-          include: PROJECT_INCLUDE,
-        });
+            include: PROJECT_INCLUDE,
+          });
+        }, TRANSACTION_OPTIONS);
         return reply.code(201).send(toResponse(created, client.id));
       } catch (error) {
         if (!isUniqueViolation(error) || attempt >= MAX_ID_ATTEMPTS) throw error;

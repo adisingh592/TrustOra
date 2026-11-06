@@ -39,6 +39,17 @@ export const CRITERION_STATUSES = [
 ] as const;
 export type CriterionStatus = (typeof CRITERION_STATUSES)[number];
 
+export const PROJECT_STATUSES = [
+  "DRAFT",
+  "AGREED",
+  "FUNDED",
+  "ACTIVE",
+  "COMPLETED",
+  "DISPUTED",
+  "CANCELLED",
+] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 export const MILESTONE_STATUSES = [
   "DRAFT",
   "AGREED",

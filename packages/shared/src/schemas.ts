@@ -15,6 +15,7 @@ import {
   ECOSYSTEMS,
   INTEGRATION_STATUSES,
   MILESTONE_STATUSES,
+  PROJECT_STATUSES,
   REFERENCE_TYPES,
   VERIFICATION_STATUSES,
 } from "./enums.js";
@@ -25,6 +26,7 @@ export const ReferenceTypeSchema = z.enum(REFERENCE_TYPES);
 export const VerificationStatusSchema = z.enum(VERIFICATION_STATUSES);
 export const IntegrationStatusSchema = z.enum(INTEGRATION_STATUSES);
 export const CriterionStatusSchema = z.enum(CRITERION_STATUSES);
+export const ProjectStatusSchema = z.enum(PROJECT_STATUSES);
 export const MilestoneStatusSchema = z.enum(MILESTONE_STATUSES);
 export const ProofEventTypeSchema = z.enum(PROOF_EVENT_TYPES);
 
@@ -171,20 +173,20 @@ const DeadlineSchema = z
   .transform((value) => new Date(value).toISOString());
 
 const milestoneTerms = {
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(120),
   amount: PositiveAmountSchema,
   deadline: DeadlineSchema,
-  criteria: z.array(z.string().trim().min(1).max(2000)).min(1).max(50),
+  criteria: z.array(z.string().trim().min(1).max(500)).min(1).max(10),
 };
 
 // Strict: a client cannot send a hash, status, role or milestone key of its own.
 export const CreateProjectBodySchema = z
   .object({
-    title: z.string().trim().min(1).max(200),
-    description: z.string().trim().min(1).max(10_000),
+    title: z.string().trim().min(1).max(120),
+    description: z.string().trim().min(1).max(2000),
     freelancerWallet: WalletAddressSchema,
     arbiterWallet: WalletAddressSchema,
-    milestones: z.array(z.object(milestoneTerms).strict()).min(1).max(50),
+    milestones: z.array(z.object(milestoneTerms).strict()).min(1).max(10),
   })
   .strict();
 export type CreateProjectBody = z.infer<typeof CreateProjectBodySchema>;
@@ -194,7 +196,7 @@ export const ProposeVersionBodySchema = z
     milestones: z
       .array(z.object({ id: z.string().min(1).max(100), ...milestoneTerms }).strict())
       .min(1)
-      .max(50),
+      .max(10),
   })
   .strict();
 export type ProposeVersionBody = z.infer<typeof ProposeVersionBodySchema>;
