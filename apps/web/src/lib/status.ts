@@ -20,7 +20,7 @@ export interface SystemStatus {
 }
 
 export function getSystemStatus(env: Record<string, string | undefined> = process.env): SystemStatus {
-  const escrow = env.ESCROW_CONTRACT_ADDRESS?.trim();
+  const escrow = env.ESCROW_CONTRACT_ADDRESS?.trim().replace(/^`|`$/g, "");
   const arcEscrow: IntegrationStatus = !escrow
     ? { status: "NOT_CONFIGURED", detail: "The escrow contract is not deployed or configured on this server, so on-chain actions are disabled." }
     : /^0x[0-9a-fA-F]{40}$/.test(escrow) && !/^0x0{40}$/i.test(escrow)

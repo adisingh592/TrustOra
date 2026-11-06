@@ -29,6 +29,7 @@ function fields(over: Partial<LoginMessageFields> = {}): LoginMessageFields {
     nonce: NONCE,
     issuedAt: NOW.toISOString(),
     expirationTime: new Date(NOW.getTime() + 600_000).toISOString(),
+    role: "CLIENT",
     ...over,
   };
 }

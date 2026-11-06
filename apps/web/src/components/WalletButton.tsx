@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, LogOut, ShieldCheck, Wallet } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useArcWallet } from "@/hooks/useArcWallet";
@@ -56,14 +57,18 @@ export function WalletButton() {
       </span>
 
       {signedIn ? (
-        <button onClick={auth.signOut} disabled={auth.busy} className={`${btn} border border-[#E5EAF1] text-slate-700 hover:bg-slate-50`} title="End your TRUSTORA session">
-          <ShieldCheck className="h-4 w-4 text-emerald-400" /> Signed in
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={w.connectMetaMask} disabled={w.connecting} className={`${btn} border border-[#E5EAF1] text-slate-700 hover:bg-slate-50`} title="Switch to another MetaMask account">
+            <Wallet className="h-4 w-4" /> Switch wallet
+          </button>
+          <button onClick={auth.signOut} disabled={auth.busy} className={`${btn} border border-[#E5EAF1] text-slate-700 hover:bg-slate-50`} title="End your TRUSTORA session">
+            <ShieldCheck className="h-4 w-4 text-emerald-400" /> Signed in
+          </button>
+        </div>
       ) : (
-        <button onClick={auth.signIn} disabled={auth.busy || auth.status === "loading"} className={`${btn} bg-arc-blue text-white hover:bg-blue-500`}>
-          {auth.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-          {auth.walletMismatch ? "Sign in with this wallet" : "Sign in"}
-        </button>
+        <Link href="/register" className={`${btn} bg-arc-blue text-white hover:bg-blue-500`}>
+          <ShieldCheck className="h-4 w-4" /> {auth.walletMismatch ? "Choose role to sign in" : "Get started"}
+        </Link>
       )}
 
       <button onClick={w.disconnect} className={`${btn} px-2 text-slate-500 hover:text-[#172B4D]`} title="Disconnect wallet" aria-label="Disconnect wallet">

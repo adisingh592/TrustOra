@@ -7,12 +7,13 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 import { NONCE_TTL_MS } from "./siwe";
+import type { AccountRole } from "./roles";
 
 export const SESSION_COOKIE = "trustora_session";
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class AuthError extends Error {
-  constructor(readonly status: 401 | 403 | 429, message: string) {
+  constructor(readonly status: 401 | 403 | 409 | 429, message: string) {
     super(message);
     this.name = "AuthError";
   }
@@ -51,19 +52,19 @@ function isSecureRequest(req: Request): boolean {
   return new URL(req.url).protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
 }
 
-export async function issueNonce(now = new Date()): Promise<{ nonce: string; expiresAt: Date }> {
+export async function issueNonce(address: string, role: AccountRole, now = new Date()): Promise<{ nonce: string; expiresAt: Date }> {
   const nonce = crypto.randomBytes(16).toString("hex");
   const expiresAt = new Date(now.getTime() + NONCE_TTL_MS);
-  await prisma.authNonce.create({ data: { nonce, expiresAt } });
+  await prisma.authNonce.create({ data: { nonce, address: address.toLowerCase(), role, expiresAt } });
   // Opportunistic cleanup keeps the table small.
   await prisma.authNonce.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 60 * 60 * 1000) } } });
   return { nonce, expiresAt };
 }
 
 /** Atomically consumes a nonce. Returns false if it is unknown, expired or already used. */
-export async function consumeNonce(nonce: string, now = new Date()): Promise<boolean> {
+export async function consumeNonce(nonce: string, address: string, role: AccountRole, now = new Date()): Promise<boolean> {
   const r = await prisma.authNonce.updateMany({
-    where: { nonce, usedAt: null, expiresAt: { gt: now } },
+    where: { nonce, address: address.toLowerCase(), role, usedAt: null, expiresAt: { gt: now } },
     data: { usedAt: now },
   });
   return r.count === 1;
@@ -74,6 +75,47 @@ export async function createSession(address: string, now = new Date()): Promise<
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
   await prisma.session.create({ data: { id: sha256(token), address: address.toLowerCase(), expiresAt } });
   return { token, expiresAt };
+}
+
+export async function requireAccountRole(address: string, role: AccountRole): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { walletAddress: address.toLowerCase() }, select: { role: true } });
+  if (!user) throw new AuthError(403, "Wallet registration is required before using this workspace");
+  if (user.role !== role) throw new AuthError(403, `This wallet is registered as ${user.role}; it cannot act as ${role}`);
+}
+
+/**
+ * Creates the one-role account and its session in one transaction. Historical project ownership
+ * is checked before first registration so migration never silently changes an existing wallet's role.
+ */
+export async function registerAccountAndCreateSession(address: string, role: AccountRole, now = new Date()): Promise<{ token: string; expiresAt: Date }> {
+  const normalized = address.toLowerCase();
+  const token = crypto.randomBytes(32).toString("base64url");
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({ where: { walletAddress: normalized }, select: { role: true } });
+      if (existing) {
+        if (existing.role !== role) throw new AuthError(403, `This wallet is registered as ${existing.role}; it cannot register as ${role}`);
+      } else {
+        const [asClient, asFreelancer] = await Promise.all([
+          tx.project.count({ where: { clientAddress: normalized } }),
+          tx.project.count({ where: { freelancerAddress: normalized } }),
+        ]);
+        if ((role === "CLIENT" && asFreelancer > 0) || (role === "FREELANCER" && asClient > 0)) {
+          throw new AuthError(409, "This wallet already owns projects under the opposite role; refusing to reassign it");
+        }
+        await tx.user.create({ data: { walletAddress: normalized, role } });
+      }
+      await tx.session.create({ data: { id: sha256(token), address: normalized, expiresAt } });
+      return { token, expiresAt };
+    });
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002") {
+      throw new AuthError(409, "This wallet was registered concurrently; sign in again with its registered role");
+    }
+    throw error;
+  }
 }
 
 function readCookie(req: Request, name: string): string | null {

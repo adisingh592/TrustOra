@@ -31,9 +31,13 @@ model Project {
   arcChainId            Int                 @default(5042002)
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
+  publishedAt           DateTime?
+  requiredSkills        String?
+  expectedDurationDays  Int?
   agreementVersions     AgreementVersion[]
   milestones            Milestone[]
   proofTrackEvents      ProofTrackEventRecord[]
+  applications          ProjectApplication[]
 }
 
 model AgreementVersion {
@@ -140,11 +144,26 @@ model ProofTrackEventRecord {
   @@unique([projectId, sequence])
 }
 
+model ProjectApplication {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applicantAddress String
+  message         String?
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED, WITHDRAWN
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([projectId, applicantAddress])
+  @@index([applicantAddress])
+}
+
 
 // Wallet authentication: single-use nonces and server-side sessions (only a SHA-256 of the cookie token is stored).
 model AuthNonce {
   nonce     String   @id
   address   String?  // bound to a wallet when issued for a specific address
+  role      String?  // CLIENT or FREELANCER; required for new wallet registration
   createdAt DateTime @default(now())
   expiresAt DateTime
   usedAt    DateTime?

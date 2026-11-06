@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { isAddress } from "viem";
 import { consumeRateLimit, issueNonce } from "@/lib/session";
+import { isAccountRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +11,11 @@ export async function POST(req: Request) {
     const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     const key = `nonce:${forwarded || "unknown"}`;
     await consumeRateLimit(key, 10, 60_000);
-    const { nonce, expiresAt } = await issueNonce();
+    const body = await req.json().catch(() => ({}));
+    if (!isAddress(body?.address, { strict: false }) || !isAccountRole(body?.role)) {
+      return NextResponse.json({ success: false, error: "A wallet address and registration role (CLIENT or FREELANCER) are required" }, { status: 400 });
+    }
+    const { nonce, expiresAt } = await issueNonce(body.address, body.role);
     return NextResponse.json({ success: true, nonce, expiresAt: expiresAt.toISOString() });
   } catch (error) {
     if (error instanceof Error && "status" in error && (error as { status?: number }).status === 429) {

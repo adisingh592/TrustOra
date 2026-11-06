@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ARC_TESTNET_CONFIG } from "@/lib/arc";
 import { AuthMessageError, verifyLoginSignature } from "@/lib/siwe";
-import { consumeNonce, consumeRateLimit, createSession, requestDomain, setSessionCookie } from "@/lib/session";
+import { authErrorResponse, consumeNonce, consumeRateLimit, registerAccountAndCreateSession, requestDomain, setSessionCookie } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -20,22 +20,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "message and signature are required" }, { status: 400 });
     }
 
-    const { address, nonce } = await verifyLoginSignature({
+    const { address, nonce, fields } = await verifyLoginSignature({
       message,
       signature,
       expectedDomain: requestDomain(req),
       expectedChainId: ARC_TESTNET_CONFIG.id,
     });
 
-    if (!(await consumeNonce(nonce))) {
+    if (!(await consumeNonce(nonce, address, fields.role))) {
       return NextResponse.json({ success: false, error: "Nonce is invalid, expired or already used" }, { status: 401 });
     }
 
-    const { token, expiresAt } = await createSession(address);
+    const { token, expiresAt } = await registerAccountAndCreateSession(address, fields.role);
     const res = NextResponse.json({ success: true, address, expiresAt: expiresAt.toISOString() });
     setSessionCookie(res, req, token, expiresAt);
     return res;
   } catch (error) {
+    const auth = authErrorResponse(error);
+    if (auth) return auth;
     if (error instanceof Error && "status" in error && (error as { status?: number }).status === 429) {
       return NextResponse.json({ success: false, error: error.message }, { status: 429 });
     }

@@ -13,6 +13,7 @@ test("nothing configured: everything reports honestly unavailable", () => {
 
 test("escrow address is validated, not just present", () => {
   assert.equal(getSystemStatus({ ESCROW_CONTRACT_ADDRESS: ADDR }).arcEscrow.status, "CONFIGURED");
+  assert.equal(getSystemStatus({ ESCROW_CONTRACT_ADDRESS: `${ADDR}\`` }).arcEscrow.status, "CONFIGURED");
   assert.equal(getSystemStatus({ ESCROW_CONTRACT_ADDRESS: "0x" + "00".repeat(20) }).arcEscrow.status, "BLOCKED");
   assert.equal(getSystemStatus({ ESCROW_CONTRACT_ADDRESS: "0x123" }).arcEscrow.status, "BLOCKED");
   assert.equal(getSystemStatus({ ESCROW_CONTRACT_ADDRESS: "   " }).arcEscrow.status, "NOT_CONFIGURED");

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { prisma } from "@/lib/prisma";
-import { authErrorResponse, requireSession } from "@/lib/session";
+import { authErrorResponse, requireAccountRole, requireSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         include: { agreementVersions: { orderBy: { versionNumber: "desc" }, take: 1 }, milestones: true },
       });
       if (!project || project.clientAddress.toLowerCase() !== address) return { status: 404 as const, error: "Project not found" };
+      const user = await tx.user.findUnique({ where: { walletAddress: address }, select: { role: true } });
+      if (!user || user.role !== "CLIENT") return { status: 403 as const, error: "Only a registered client can assign a freelancer" };
       if (freelancerAddress === address) return { status: 400 as const, error: "The freelancer must be a different wallet than the client" };
       const agreement = project.agreementVersions[0];
       if (project.registerTxHash || agreement?.isLocked || agreement?.freelancerAccepted || project.milestones.some((m) => m.state !== "UNFUNDED")) {

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { run0GEvaluation } from "@/lib/0g";
 import { recordProofTrackEvent } from "@/lib/prooftrack";
-import { authErrorResponse, requireSession } from "@/lib/session";
+import { authErrorResponse, requireAccountRole, requireSession } from "@/lib/session";
 import { canPerform } from "@/lib/authz";
 import { loadMilestoneInProject, readJsonBody } from "@/lib/escrow-db";
 
@@ -26,6 +26,7 @@ export async function POST(
   try {
     const { id, milestoneId } = await params;
     const session = await requireSession(req);
+    await requireAccountRole(session.address, "CLIENT");
     const body = await readJsonBody(req);
 
     const milestone = await loadMilestoneInProject(id, milestoneId);

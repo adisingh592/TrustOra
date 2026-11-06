@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { generateCriteriaFromScope, createAgreementVersion, type CriterionItem } from "@/lib/agreement";
 import { generateProjectId, recordProofTrackEvent } from "@/lib/prooftrack";
 import { toUsdcBaseUnits } from "@/lib/arc";
-import { authErrorResponse, requireSession } from "@/lib/session";
+import { authErrorResponse, requireAccountRole, requireSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -56,11 +56,12 @@ function parseCriteria(raw: unknown): CriterionItem[] | null {
 
 /**
  * Creates a DRAFT project. The client is ALWAYS the signed-in wallet; clientAddress in the body is ignored.
- * The freelancer address is required because the escrow contract needs it when the client registers the project.
+ * A freelancer may be assigned now or later through an invitation/application before Arc registration.
  */
 export async function POST(req: Request) {
   try {
     const session = await requireSession(req);
+    await requireAccountRole(session.address, "CLIENT");
     const body = await req.json().catch(() => ({}));
     const { title, description, freelancerAddress, arbiterAddress, budgetUsdc, customCriteria, milestones } = body ?? {};
 
@@ -68,10 +69,13 @@ export async function POST(req: Request) {
         typeof description !== "string" || !description.trim() || description.length > 4000) {
       return NextResponse.json({ success: false, error: "title (max 120 chars) and description (max 4000 chars) are required" }, { status: 400 });
     }
-    if (typeof freelancerAddress !== "string" || !isAddress(freelancerAddress, { strict: false })) {
-      return NextResponse.json({ success: false, error: "A valid freelancerAddress is required" }, { status: 400 });
+    let freelancer: string | null = null;
+    if (freelancerAddress !== undefined && freelancerAddress !== null && freelancerAddress !== "") {
+      if (typeof freelancerAddress !== "string" || !isAddress(freelancerAddress, { strict: false })) {
+        return NextResponse.json({ success: false, error: "freelancerAddress must be a valid wallet address when provided" }, { status: 400 });
+      }
+      freelancer = freelancerAddress.toLowerCase();
     }
-    const freelancer = freelancerAddress.toLowerCase();
     if (freelancer === session.address) {
       return NextResponse.json({ success: false, error: "The freelancer must be a different wallet than the client" }, { status: 400 });
     }

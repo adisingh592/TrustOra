@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { recordProofTrackEvent } from "@/lib/prooftrack";
-import { authErrorResponse, requireSession } from "@/lib/session";
+import { authErrorResponse, requireAccountRole, requireSession } from "@/lib/session";
 import { rolesOf } from "@/lib/authz";
 import { buildAgreementMessage, verifyAgreementSignature } from "@/lib/siwe";
 
@@ -36,6 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         { status: 403 }
       );
     }
+    await requireAccountRole(session.address, "FREELANCER");
     if (agreement.freelancerAccepted) {
       return NextResponse.json({ success: true, agreement, bothAccepted: agreement.isLocked, alreadyAccepted: true });
     }

@@ -8,7 +8,7 @@ import { prisma } from "./prisma";
 import { arcPublicClient, getEscrowAddress } from "./arc";
 import { recordProofTrackEvent } from "./prooftrack";
 import { ACTION_ROLES, canPerform, isParticipant } from "./authz";
-import { authErrorResponse, requireSession } from "./session";
+import { authErrorResponse, requireAccountRole, requireSession } from "./session";
 import {
   ESCROW_ACTIONS,
   EscrowSyncError,
@@ -184,6 +184,8 @@ export async function handleEscrowTxRequest(
 ) {
   try {
     const session = await requireSession(req);
+    const accountRole = action === "submit" || action === "refund" ? "FREELANCER" : action === "dispute" ? null : "CLIENT";
+    if (accountRole) await requireAccountRole(session.address, accountRole);
     const body = await readJsonBody(req);
     if (typeof body.txHash !== "string" || !body.txHash) {
       return NextResponse.json({ success: false, error: "Missing txHash" }, { status: 400 });
@@ -231,6 +233,7 @@ export async function handleRegisterProject(req: Request, params: { id: string }
     }
     const loaded = await loadProjectForClient(params.id, session.address);
     if (loaded.error) return loaded.error;
+    await requireAccountRole(session.address, "CLIENT");
     const { project } = loaded;
 
     const escrowAddress = getEscrowAddress();
@@ -283,6 +286,7 @@ export async function handleRegisterMilestone(req: Request, params: { id: string
     }
     const loaded = await loadProjectForClient(params.id, session.address);
     if (loaded.error) return loaded.error;
+    await requireAccountRole(session.address, "CLIENT");
     const { project } = loaded;
 
     const milestone = project.milestones.find((m) => m.id === params.milestoneId);

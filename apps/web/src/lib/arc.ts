@@ -39,6 +39,6 @@ export const arcPublicClient = createPublicClient({
 
 /** Escrow address comes from server config only, never from request bodies. */
 export function getEscrowAddress(): `0x${string}` | null {
-  const v = process.env.ESCROW_CONTRACT_ADDRESS;
+  const v = process.env.ESCROW_CONTRACT_ADDRESS?.trim().replace(/^`|`$/g, "");
   return v && /^0x[0-9a-fA-F]{40}$/.test(v) && !/^0x0{40}$/i.test(v) ? (v as `0x${string}`) : null;
 }

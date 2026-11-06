@@ -4,6 +4,7 @@
  * proves the browser controls the wallet key without ever exposing it.
  */
 import { getAddress, recoverMessageAddress, isAddress } from "viem";
+import type { AccountRole } from "./roles";
 
 export const SIWE_STATEMENT =
   "Sign in to TRUSTORA. This signature proves wallet ownership only. It does not authorize any transaction or movement of funds.";
@@ -20,6 +21,7 @@ export interface LoginMessageFields {
   nonce: string;
   issuedAt: string;
   expirationTime: string;
+  role: AccountRole;
 }
 
 export function buildLoginMessage(f: LoginMessageFields): string {
@@ -35,6 +37,7 @@ export function buildLoginMessage(f: LoginMessageFields): string {
     `Nonce: ${f.nonce}`,
     `Issued At: ${f.issuedAt}`,
     `Expiration Time: ${f.expirationTime}`,
+    `TRUSTORA Role: ${f.role}`,
   ].join("\n");
 }
 
@@ -57,7 +60,7 @@ export function parseLoginMessage(message: string): LoginMessageFields {
   const malformed = () => new AuthMessageError("MALFORMED_MESSAGE", "Login message is malformed");
   if (typeof message !== "string" || message.length > 1000) throw malformed();
   const lines = message.split("\n");
-  if (lines.length !== 11) throw malformed();
+  if (lines.length !== 12) throw malformed();
   const header = /^(\S+) wants you to sign in with your Ethereum account:$/.exec(lines[0]!);
   if (!header) throw malformed();
   const address = lines[1]!;
@@ -74,9 +77,10 @@ export function parseLoginMessage(message: string): LoginMessageFields {
   const nonce = field(lines[8], "Nonce");
   const issuedAt = field(lines[9], "Issued At");
   const expirationTime = field(lines[10], "Expiration Time");
-  if (!Number.isInteger(chainId) || !/^[0-9a-f]{32}$/.test(nonce)) throw malformed();
+  const role = field(lines[11], "TRUSTORA Role");
+  if (!Number.isInteger(chainId) || !/^[0-9a-f]{32}$/.test(nonce) || !["CLIENT", "FREELANCER"].includes(role)) throw malformed();
   if (Number.isNaN(Date.parse(issuedAt)) || Number.isNaN(Date.parse(expirationTime))) throw malformed();
-  return { domain: header[1]!, address: getAddress(address), uri, chainId, nonce, issuedAt, expirationTime };
+  return { domain: header[1]!, address: getAddress(address), uri, chainId, nonce, issuedAt, expirationTime, role: role as AccountRole };
 }
 
 export interface VerifyLoginParams {

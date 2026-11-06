@@ -69,7 +69,7 @@ async function call(handlerKey: string, opts: { method?: string; url?: string; c
 }
 
 async function login(account: ReturnType<typeof privateKeyToAccount>): Promise<string> {
-  const n = await call("nonce");
+  const n = await call("nonce", { body: { address: account.address, role: account === freelancer ? "FREELANCER" : "CLIENT" } });
   const now = new Date();
   const message = buildLoginMessage({
     domain: HOST,
@@ -79,6 +79,7 @@ async function login(account: ReturnType<typeof privateKeyToAccount>): Promise<s
     nonce: n.json.nonce,
     issuedAt: now.toISOString(),
     expirationTime: new Date(now.getTime() + 600_000).toISOString(),
+    role: account === freelancer ? "FREELANCER" : "CLIENT",
   });
   const signature = await account.signMessage({ message });
   const v = await call("verify", { url: `http://${HOST}/api/auth/verify`, body: { message, signature } });
@@ -122,6 +123,14 @@ before(async () => {
   routes.session = await import(`${p}/auth/session/route`);
   routes.logout = await import(`${p}/auth/logout/route`);
   routes.projects = await import(`${p}/projects/route`);
+  routes.publish = await import(`${p}/projects/[id]/publish/route`);
+  routes.applications = await import(`${p}/projects/[id]/applications/route`);
+  routes.marketplace = await import(`${p}/marketplace/route`);
+  routes.marketplaceDetail = await import(`${p}/marketplace/[id]/route`);
+  routes.receivedApplications = await import(`${p}/applications/received/route`);
+  routes.myApplications = await import(`${p}/applications/mine/route`);
+  routes.apply = await import(`${p}/marketplace/[id]/apply/route`);
+  routes.approve = await import(`${p}/projects/[id]/applications/[applicationId]/route`);
   routes.project = await import(`${p}/projects/[id]/route`);
   routes.invite = await import(`${p}/projects/[id]/invite/route`);
   routes.accept = await import(`${p}/projects/[id]/agreements/accept/route`);
@@ -156,17 +165,17 @@ test("every protected route rejects unauthenticated requests with 401", async ()
 
 test("login: nonce is single-use, domain-bound, and sessions are HttpOnly + revocable", async () => {
   // replay: the same signed message cannot create a second session
-  const n = await call("nonce");
+  const n = await call("nonce", { body: { address: client.address, role: "CLIENT" } });
   const now = new Date();
-  const message = buildLoginMessage({ domain: HOST, address: client.address, uri: `http://${HOST}`, chainId: 5042002, nonce: n.json.nonce, issuedAt: now.toISOString(), expirationTime: new Date(now.getTime() + 600_000).toISOString() });
+  const message = buildLoginMessage({ domain: HOST, address: client.address, uri: `http://${HOST}`, chainId: 5042002, nonce: n.json.nonce, issuedAt: now.toISOString(), expirationTime: new Date(now.getTime() + 600_000).toISOString(), role: "CLIENT" });
   const signature = await client.signMessage({ message });
   assert.equal((await call("verify", { body: { message, signature } })).status, 200);
   const replay = await call("verify", { body: { message, signature } });
   assert.equal(replay.status, 401);
 
   // a signature from another wallet / another domain / an unissued nonce is refused
-  const n2 = await call("nonce");
-  const mk = (over: object) => buildLoginMessage({ domain: HOST, address: client.address, uri: `http://${HOST}`, chainId: 5042002, nonce: n2.json.nonce, issuedAt: now.toISOString(), expirationTime: new Date(now.getTime() + 600_000).toISOString(), ...over });
+  const n2 = await call("nonce", { body: { address: client.address, role: "CLIENT" } });
+  const mk = (over: object) => buildLoginMessage({ domain: HOST, address: client.address, uri: `http://${HOST}`, chainId: 5042002, nonce: n2.json.nonce, issuedAt: now.toISOString(), expirationTime: new Date(now.getTime() + 600_000).toISOString(), role: "CLIENT", ...over });
   const m2 = mk({});
   assert.equal((await call("verify", { body: { message: m2, signature: await stranger.signMessage({ message: m2 }) } })).status, 401);
   const evil = mk({ domain: "evil.example" });
@@ -194,6 +203,46 @@ test("login: nonce is single-use, domain-bound, and sessions are HttpOnly + revo
   cookieStranger = await login(stranger);
 });
 
+test("registration role is signed, one-wallet-only, and concurrent creation is atomic", async () => {
+  const oppositeNonce = await call("nonce", { body: { address: client.address, role: "FREELANCER" } });
+  const now = new Date();
+  const oppositeMessage = buildLoginMessage({
+    domain: HOST,
+    address: client.address,
+    uri: `http://${HOST}`,
+    chainId: 5042002,
+    nonce: oppositeNonce.json.nonce,
+    issuedAt: now.toISOString(),
+    expirationTime: new Date(now.getTime() + 600_000).toISOString(),
+    role: "FREELANCER",
+  });
+  const opposite = await call("verify", {
+    body: { message: oppositeMessage, signature: await client.signMessage({ message: oppositeMessage }) },
+  });
+  assert.equal(opposite.status, 403);
+  assert.match(opposite.json.error, /registered as CLIENT/);
+
+  const racing = privateKeyToAccount(generatePrivateKey());
+  const registerOnce = async () => {
+    const n = await call("nonce", { body: { address: racing.address, role: "FREELANCER" } });
+    const issued = new Date();
+    const message = buildLoginMessage({
+      domain: HOST,
+      address: racing.address,
+      uri: `http://${HOST}`,
+      chainId: 5042002,
+      nonce: n.json.nonce,
+      issuedAt: issued.toISOString(),
+      expirationTime: new Date(issued.getTime() + 600_000).toISOString(),
+      role: "FREELANCER",
+    });
+    return call("verify", { body: { message, signature: await racing.signMessage({ message }) } });
+  };
+  const results = await Promise.all([registerOnce(), registerOnce()]);
+  assert.deepEqual(results.map((r) => r.status).sort((a, b) => a - b), [200, 200]);
+  assert.equal((await db.user.findUnique({ where: { walletAddress: racing.address.toLowerCase() } }))?.role, "FREELANCER");
+});
+
 test("create project: client is the session wallet, never the request body", async () => {
   const body = { title: "Escrow dashboard", description: "Build an escrow dashboard with tests", freelancerAddress: freelancer.address, budgetUsdc: "250", clientAddress: stranger.address, role: "FREELANCER" };
   const r = await call("projects", { cookie: cookieClient, body });
@@ -211,7 +260,7 @@ test("create project: client is the session wallet, never the request body", asy
 test("create project validation", async () => {
   const base = { title: "T", description: "D", freelancerAddress: freelancer.address, budgetUsdc: "10" };
   for (const bad of [
-    { ...base, freelancerAddress: undefined },
+    { ...base, freelancerAddress: "not-an-address" },
     { ...base, freelancerAddress: "0x123" },
     { ...base, freelancerAddress: client.address },
     { ...base, budgetUsdc: "1.1234567" },
@@ -239,6 +288,31 @@ test("visibility: only participants can list or open a project", async () => {
   assert.deepEqual(own.json.viewer.roles, ["freelancer"]);
   assert.equal(own.json.chain.escrowAddress, ESCROW);
   assert.equal((await call("project", { method: "GET", cookie: cookieStranger, params: { id: projectId } })).status, 404);
+});
+
+test("marketplace only exposes published projects and enforces freelancer applications", async () => {
+  assert.equal((await call("marketplace", { method: "GET", cookie: cookieFreelancer })).json.projects.some((p: any) => p.id === projectId), false);
+  assert.equal((await call("publish", { cookie: cookieFreelancer, params: { id: projectId }, body: {} })).status, 403);
+  assert.equal((await call("publish", { cookie: cookieClient, params: { id: projectId }, body: {} })).status, 200);
+  const listed = await call("marketplace", { method: "GET", cookie: cookieFreelancer });
+  assert.ok(listed.json.projects.some((p: any) => p.id === projectId));
+  const detail = await call("marketplaceDetail", { method: "GET", cookie: cookieFreelancer, params: { id: projectId } });
+  assert.equal(detail.status, 200);
+  assert.equal(detail.json.project.clientAddress, client.address.toLowerCase());
+  assert.equal((await call("apply", { cookie: cookieClient, params: { id: projectId }, body: {} })).status, 403);
+  assert.equal((await call("apply", { cookie: cookieFreelancer, params: { id: projectId }, body: { message: "I can deliver this." } })).status, 201);
+  assert.equal((await call("apply", { cookie: cookieFreelancer, params: { id: projectId }, body: {} })).status, 409);
+  const mine = await call("myApplications", { method: "GET", cookie: cookieFreelancer });
+  assert.equal(mine.status, 200);
+  assert.equal(mine.json.applications.length, 1);
+  assert.equal((await call("receivedApplications", { method: "GET", cookie: cookieClient })).json.applications.length, 1);
+  const applications = await call("applications", { method: "GET", cookie: cookieClient, params: { id: projectId } });
+  assert.equal(applications.status, 200);
+  assert.equal(applications.json.applications.length, 1);
+  assert.equal((await call("applications", { method: "GET", cookie: cookieFreelancer, params: { id: projectId } })).status, 403);
+  const applicationId = applications.json.applications[0].id;
+  assert.equal((await call("approve", { cookie: cookieFreelancer, params: { id: projectId, applicationId }, body: {} })).status, 403);
+  assert.equal((await call("approve", { cookie: cookieClient, params: { id: projectId, applicationId }, body: {} })).status, 200);
 });
 
 test("client invitations are wallet-bound and freelancer assignment freezes when accepted", async () => {

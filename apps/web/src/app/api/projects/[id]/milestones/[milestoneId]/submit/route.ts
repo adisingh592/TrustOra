@@ -8,7 +8,7 @@ import {
   readJsonBody,
   syncEscrowTx,
 } from "@/lib/escrow-db";
-import { requireSession } from "@/lib/session";
+import { requireAccountRole, requireSession } from "@/lib/session";
 import { ACTION_ROLES, canPerform } from "@/lib/authz";
 import { MAX_DELIVERABLE_CHARS as EVALUATOR_MAX_CHARS } from "@/lib/0g";
 
@@ -30,6 +30,7 @@ export async function POST(
   try {
     const { id, milestoneId } = await params;
     const session = await requireSession(req);
+    await requireAccountRole(session.address, "FREELANCER");
     const body = await readJsonBody(req);
 
     if (body.txHash !== undefined) {

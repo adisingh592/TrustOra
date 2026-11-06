@@ -36,9 +36,13 @@ function Form() {
     try { total += toUsdcBaseUnits(r.amount); if (toUsdcBaseUnits(r.amount) <= 0n) amountsValid = false; } catch { amountsValid = false; }
   }
   const totalDisplay = (Number(total) / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 });
-  const freelancerOk = isAddress(freelancer, { strict: false }) && freelancer.toLowerCase() !== auth.sessionAddress;
+  const freelancerOk = !freelancer || (isAddress(freelancer, { strict: false }) && freelancer.toLowerCase() !== auth.sessionAddress);
   const arbiterOk = !arbiter || isAddress(arbiter, { strict: false });
   const valid = title.trim() && description.trim() && freelancerOk && arbiterOk && amountsValid && rows.length > 0;
+
+  if (auth.accountRole !== "CLIENT") {
+    return <Card><h1 className="text-xl font-semibold text-[#172B4D]">Client workspace only</h1><p className="mt-2 text-sm text-slate-600">Project creation is available to wallets registered as CLIENT. Freelancer wallets can accept invitations and submit deliverables from their dashboard.</p></Card>;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,7 +79,7 @@ function Form() {
         <div><label className={label} htmlFor="desc">Scope of work</label><textarea id="desc" className={input} rows={5} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={4000} required /></div>
         <div>
           <label className={label} htmlFor="fl">Freelancer wallet address</label>
-          <input id="fl" className={`${input} font-mono`} value={freelancer} onChange={(e) => setFreelancer(e.target.value)} placeholder="0x…" required />
+          <input id="fl" className={`${input} font-mono`} value={freelancer} onChange={(e) => setFreelancer(e.target.value)} placeholder="0x… (optional for marketplace publishing)" />
           {freelancer && !freelancerOk && <p className="mt-1 text-xs text-rose-300">Enter a valid address that is not your own wallet.</p>}
         </div>
         <div>

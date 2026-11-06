@@ -2,28 +2,37 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Bot, CircleDollarSign, FileCheck2, LayoutDashboard, Menu, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { CircleDollarSign, FileCheck2, LayoutDashboard, Menu, Search, ShieldCheck, SlidersHorizontal, Users, X } from "lucide-react";
 import { useState } from "react";
 import { WalletButton } from "./WalletButton";
+import { useAuth } from "./AuthProvider";
 
-const links = [
+const clientLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/projects", label: "Projects", icon: FileCheck2 },
+  { href: "/projects", label: "My Projects", icon: FileCheck2 },
   { href: "/projects/new", label: "Create project", icon: CircleDollarSign },
-  { href: "/dashboard#integrations", label: "AI Evaluation", icon: Bot },
-  { href: "/dashboard#integrations", label: "ProofTrack", icon: Activity },
+  { href: "/dashboard#applications", label: "Applications", icon: Users },
   { href: "/agent-payments", label: "Agent Payments", icon: SlidersHorizontal },
+];
+const freelancerLinks = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/marketplace", label: "Marketplace", icon: Search },
+  { href: "/dashboard#applications", label: "My Applications", icon: Users },
+  { href: "/projects", label: "My Contracts", icon: FileCheck2 },
+  { href: "/agent-payments", label: "Payments", icon: SlidersHorizontal },
 ];
 
 /** A link is active on its own page; "Projects" also stays active inside a project but not on "New project". */
 function isActive(pathname: string, href: string): boolean {
   if (href === "/projects") return pathname === "/projects" || (pathname.startsWith("/projects/") && pathname !== "/projects/new");
-  return pathname === href;
+  return pathname === href.split("#")[0];
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const auth = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const links = auth.accountRole === "FREELANCER" ? freelancerLinks : clientLinks;
   const nav = (mobile: boolean) =>
     links.map((l) => {
       const active = isActive(pathname, l.href);
@@ -49,7 +58,7 @@ export function SiteHeader() {
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3867F6] text-white"><ShieldCheck className="h-5 w-5" /></span> TRUSTORA
         </Link>
         <nav className="hidden items-center gap-1 xl:flex" aria-label="Main">{nav(false)}</nav>
-        <div className="ml-auto flex items-center gap-3"><span className="hidden items-center gap-2 rounded-full border border-[#E5EAF1] bg-[#F8FAFC] px-3 py-2 text-xs font-medium text-slate-600 sm:inline-flex"><span className="h-2 w-2 rounded-full bg-emerald-500"/> Arc Testnet</span><WalletButton /></div>
+        <div className="ml-auto flex items-center gap-3"><span className="hidden items-center gap-2 rounded-full border border-[#E5EAF1] bg-[#F8FAFC] px-3 py-2 text-xs font-medium text-slate-600 sm:inline-flex"><span className="h-2 w-2 rounded-full bg-emerald-500"/> Arc Testnet</span>{auth.accountRole && <span className="hidden rounded-full bg-[#EAF0FF] px-3 py-2 text-xs font-semibold text-[#2854DB] sm:inline-flex">{auth.accountRole === "CLIENT" ? "Client Workspace" : "Freelancer Workspace"}</span>}<WalletButton /></div>
         <button type="button" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E5EAF1] text-slate-600 xl:hidden">{mobileOpen ? <X className="h-5 w-5"/> : <Menu className="h-5 w-5"/>}</button>
       </div>
       {mobileOpen && <nav className="grid gap-1 border-t border-[#E5EAF1] bg-white px-4 py-3 xl:hidden" aria-label="Mobile main">{nav(true)}</nav>}
