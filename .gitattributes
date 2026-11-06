@@ -1,0 +1,2 @@
+# Keep migrations byte-identical across Windows and Linux: Prisma checksums them.
+apps/api/prisma/migrations/** text eol=lf

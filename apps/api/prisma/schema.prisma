@@ -1,5 +1,163 @@
-// No models yet.
+// Rules for every model:
+// - USDC amounts are Strings of integer base units (6 decimals), never Float or Int.
+// - Status and enum-like fields are Strings. Prisma does not support enums on
+//   SQLite, so validate them with the zod enums from @trustora/shared at the API.
+// - Wallet addresses are stored lowercase.
+// - No private keys or secrets in any table. No raw deliverable content, only
+//   the private file path and hashes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  /// Lowercase.
+  walletAddress String   @unique
+  displayName   String?
+  createdAt     DateTime @default(now())
+
+  clientProjects     Project[]    @relation("ProjectClient")
+  freelancerProjects Project[]    @relation("ProjectFreelancer")
+  submissions        Submission[]
+}
+
+/// Single-use nonce for wallet auth.
+model AuthNonce {
+  id        String    @id @default(cuid())
+  nonce     String    @unique
+  domain    String
+  chainId   Int
+  /// Lowercase.
+  address   String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Project {
+  id              String   @id @default(cuid())
+  /// For example TRU-PROJ-2026-0001042.
+  publicProjectId String   @unique
+  title           String
+  description     String
+  clientId        String
+  freelancerId    String?
+  status          String
+  createdAt       DateTime @default(now())
+
+  client     User        @relation("ProjectClient", fields: [clientId], references: [id])
+  freelancer User?       @relation("ProjectFreelancer", fields: [freelancerId], references: [id])
+  milestones Milestone[]
+
+  @@index([clientId])
+  @@index([freelancerId])
+}
+
+model Milestone {
+  id                 String   @id @default(cuid())
+  projectId          String
+  /// 0x + 64 hex: the bytes32 key used by the escrow contract.
+  onchainMilestoneId String   @unique
+  title              String
+  /// Integer base units as a string.
+  amountBaseUnits    String
+  tokenAddress       String
+  tokenDecimals      Int
+  deadline           DateTime
+  /// A MilestoneStatus value.
+  status             String
+  createdAt          DateTime @default(now())
+
+  project           Project            @relation(fields: [projectId], references: [id])
+  agreementVersions AgreementVersion[]
+  submissions       Submission[]
+
+  @@index([projectId])
+}
+
+/// Versions are immutable once created. To change the agreement, create a new
+/// version. Only clientAcceptedAt and freelancerAcceptedAt are set afterwards.
+model AgreementVersion {
+  id                   String    @id @default(cuid())
+  milestoneId          String
+  version              Int
+  /// Canonical JSON.
+  criteriaJson         String
+  /// SHA-256 of the canonical JSON.
+  agreementHash        String
+  clientAcceptedAt     DateTime?
+  freelancerAcceptedAt DateTime?
+  createdAt            DateTime  @default(now())
+
+  milestone   Milestone    @relation(fields: [milestoneId], references: [id])
+  submissions Submission[]
+
+  @@unique([milestoneId, version])
+}
+
+model Submission {
+  id                 String    @id @default(cuid())
+  milestoneId        String
+  freelancerId       String
+  agreementVersionId String
+  privateFilePath    String
+  /// SHA-256 hex.
+  fileHash           String
+  aiConsent          Boolean
+  aiConsentAt        DateTime?
+  status             String
+  submittedAt        DateTime  @default(now())
+
+  milestone        Milestone        @relation(fields: [milestoneId], references: [id])
+  freelancer       User             @relation(fields: [freelancerId], references: [id])
+  agreementVersion AgreementVersion @relation(fields: [agreementVersionId], references: [id])
+  evaluations      Evaluation[]
+
+  @@index([milestoneId])
+  @@index([freelancerId])
+  @@index([agreementVersionId])
+}
+
+model Evaluation {
+  id           String   @id @default(cuid())
+  submissionId String
+  provider     String
+  modelId      String
+  /// An INFERENCE_REQUEST_ID, never a transaction hash.
+  requestId    String
+  promptHash   String
+  reportHash   String
+  resultJson   String
+  status       String
+  createdAt    DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+
+  @@index([submissionId])
+}
+
+model ProofEvent {
+  id                 String    @id @default(cuid())
+  publicProjectId    String
+  milestoneId        String?
+  occurredAt         DateTime
+  ecosystem          String
+  network            String
+  chainId            Int?
+  eventType          String
+  referenceType      String
+  referenceValue     String
+  verificationStatus String
+  verifiedAt         DateTime?
+  explorerUrl        String?
+  summary            String
+
+  @@unique([referenceType, referenceValue, eventType])
+  @@index([publicProjectId])
 }
