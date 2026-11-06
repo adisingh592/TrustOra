@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRUSTORA · Milestone-Escrow Trust Infrastructure</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230f172a'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'/></svg>">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0f172a;
+      --primary-hover: #1e293b;
+      --green-bg: #dcfce7;
+      --green-text: #166534;
+      --green-border: #bbf7d0;
+      --amber-bg: #fef3c7;
+      --amber-text: #92400e;
+      --amber-border: #fde68a;
+      --red-bg: #fee2e2;
+      --red-text: #991b1b;
+      --red-border: #fecaca;
+      --blue-bg: #dbeafe;
+      --blue-text: #1e40af;
+      --blue-border: #bfdbfe;
+      --purple-bg: #f3e8ff;
+      --purple-text: #6b21a8;
+      --purple-border: #e9d5ff;
+      --gray-badge-bg: #f1f5f9;
+      --gray-badge-text: #475569;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation */
+    header.navbar {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      font-size: 1.05rem;
+      cursor: pointer;
+    }
+    .brand svg {
+      width: 22px;
+      height: 22px;
+      fill: #0f172a;
+    }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .fixture-pill {
+      background: var(--amber-bg);
+      color: var(--amber-text);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: 1px solid var(--amber-border);
+      cursor: pointer;
+    }
+    .network-pill {
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      border: 1px solid var(--blue-border);
+    }
+    .wallet-pill {
+      background: #f8fafc;
+      color: #334155;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.3rem 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* Step Breadcrumbs */
+    .step-bar {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      overflow-x: auto;
+    }
+    .step-btn {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .step-btn:hover { color: var(--text); background: #f1f5f9; }
+    .step-btn.active {
+      color: var(--text);
+      font-weight: 700;
+      border-bottom: 2px solid var(--primary);
+      border-radius: 0;
+    }
+    .step-btn.done {
+      color: var(--green-text);
+      font-weight: 600;
+    }
+
+    /* Main Container */
+    main.container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2.25rem 1.5rem 4rem 1.5rem;
+      flex: 1;
+    }
+
+    .project-header-id {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+    }
+    .page-title-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 0.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .page-title {
+      font-size: 1.85rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .page-subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.75rem;
+    }
+
+    /* Grid Layouts */
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 1.75rem;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .layout-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.65rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+    .card-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    /* Badges & Pills */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .badge-green { background: var(--green-bg); color: var(--green-text); border: 1px solid var(--green-border); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber-text); border: 1px solid var(--amber-border); }
+    .badge-red { background: var(--red-bg); color: var(--red-text); border: 1px solid var(--red-border); }
+    .badge-blue { background: var(--blue-bg); color: var(--blue-text); border: 1px solid var(--blue-border); }
+    .badge-purple { background: var(--purple-bg); color: var(--purple-text); border: 1px solid var(--purple-border); }
+    .badge-gray { background: var(--gray-badge-bg); color: var(--gray-badge-text); border: 1px solid var(--border); }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: var(--primary);
+      color: #ffffff;
+      padding: 0.7rem 1.4rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.925rem;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .btn-green { background: #15803d; }
+    .btn-green:hover { background: #166534; }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-dark);
+    }
+    .btn-outline:hover { background: #f1f5f9; }
+
+    /* Alert / Notice Boxes */
+    .notice {
+      padding: 0.85rem 1.15rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1.35rem;
+      display: flex;
+      gap: 0.65rem;
+      line-height: 1.45;
+    }
+    .notice-blue {
+      background: #eff6ff;
+      border: 1px solid var(--blue-border);
+      color: #1e3a8a;
+    }
+    .notice-amber {
+      background: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      color: var(--amber-text);
+    }
+    .notice-red {
+      background: var(--red-bg);
+      border: 1px solid var(--red-border);
+      color: var(--red-text);
+    }
+    .notice-gray {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      color: #334155;
+    }
+
+    /* Key-Value Tables */
+    .kv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      font-size: 0.875rem;
+      margin-bottom: 1.25rem;
+    }
+    .kv-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .kv-label { color: var(--text-muted); }
+    .kv-val { font-weight: 600; text-align: right; }
+    .kv-val.mono { font-family: var(--font-mono); font-size: 0.82rem; word-break: break-all; }
+
+    /* Criteria List */
+    .criteria-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .criteria-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      background: #ffffff;
+    }
+    .criteria-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+    }
+    .criteria-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .criteria-text {
+      font-size: 0.925rem;
+      font-weight: 600;
+      flex: 1;
+    }
+    .criteria-evidence {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+      padding-left: 2.25rem;
+    }
+
+    /* ProofTrack Timeline Rows */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .timeline-item {
+      display: flex;
+      gap: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.15rem;
+      background: #ffffff;
+      position: relative;
+    }
+    .timeline-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #10b981;
+      margin-top: 0.4rem;
+      flex-shrink: 0;
+    }
+    .timeline-dot.pending { background: #f59e0b; }
+    .timeline-dot.failed { background: #ef4444; }
+    .timeline-content { flex: 1; }
+    .timeline-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .timeline-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .timeline-tags {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 0.45rem;
+      flex-wrap: wrap;
+    }
+    .timeline-ref {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #334155;
+      background: #f8fafc;
+      padding: 0.3rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      word-break: break-all;
+      margin-bottom: 0.45rem;
+    }
+    .timeline-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Code Block */
+    pre.code-block {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 1.15rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      line-height: 1.5;
+      margin: 0.85rem 0;
+    }
+
+    /* Footer */
+    footer.app-footer {
+      background: #0f172a;
+      color: #94a3b8;
+      font-size: 0.775rem;
+      padding: 1.15rem 2rem;
+      text-align: center;
+      margin-top: auto;
+      letter-spacing: 0.02em;
+    }
+    footer.app-footer span { margin: 0 0.85rem; }
+
+    /* Hidden Utility */
+    .view-panel { display: none; }
+    .view-panel.active-view { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="brand" onclick="switchView('signin')">
+      <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+      <span>TRUSTORA</span>
+    </div>
+    <div class="nav-right">
+      <span class="fixture-pill" id="fixturePill" title="Toggle between Fixture Mock Mode and Live API" onclick="toggleFixtureMode()">FIXTURE DATA</span>
+      <span class="network-pill" id="networkPill">Arc Testnet · 5042002</span>
+      <span class="wallet-pill" id="walletPill">0x0000…0001 · 62.40 USDC</span>
+    </div>
+  </header>
+
+  <!-- Step Breadcrumbs (Workflow Bar) -->
+  <nav class="step-bar">
+    <button class="step-btn" id="nav-signin" onclick="switchView('signin')">0 Sign In</button>
+    <button class="step-btn" id="nav-agree" onclick="switchView('agree')">1 Agree <span id="check-agree"></span></button>
+    <button class="step-btn" id="nav-fund" onclick="switchView('fund')">2 Fund <span id="check-fund"></span></button>
+    <button class="step-btn" id="nav-work" onclick="switchView('work')">3 Work <span id="check-work"></span></button>
+    <button class="step-btn" id="nav-eval" onclick="switchView('eval')">4 Evaluate <span id="check-eval"></span></button>
+    <button class="step-btn" id="nav-verify" onclick="switchView('verify')">5 Verify <span id="check-verify"></span></button>
+    <button class="step-btn" id="nav-infra" onclick="switchView('infra')">6 Infrastructure</button>
+    <span style="border-left: 1px solid var(--border); height: 20px; margin: 0 0.25rem;"></span>
+    <button class="step-btn" id="nav-scopeguard" onclick="switchView('scopeguard')">🛡️ ScopeGuard</button>
+    <button class="step-btn" id="nav-trustshield" onclick="switchView('trustshield')">⚡ TrustShield</button>
+    <button class="step-btn" id="nav-trustreport" onclick="switchView('trustreport')">📜 Trust Report</button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 1: SIGN IN WITH WALLET (PDF Page 1)                                -->
+    <!-- ========================================================================= -->
+    <div id="view-signin" class="view-panel active-view">
+      <div class="layout-grid" style="grid-template-columns: 1.15fr 1fr; align-items: center; margin-top: 1rem;">
+        <div>
+          <h1 style="font-size: 3rem; font-weight: 800; line-height: 1.08; letter-spacing: -0.03em; margin-bottom: 1.5rem;">
+            Trust every<br>transaction.<br>Secure every<br>promise.
+          </h1>
+          <p style="font-size: 1.05rem; color: var(--text-muted); margin-bottom: 2rem; max-width: 480px;">
+            Agree on clear deliverables, lock milestone funds in escrow before work starts, review submissions against the agreed criteria, and check every payment record yourself.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; max-width: 480px; margin-bottom: 1.5rem;">
+            <div style="border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; background: #fff;">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted);">01</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Agree</div>
+            </div>
+            <div style="border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; background: #fff;">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted);">02</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Fund</div>
+            </div>
+            <div style="border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; background: #fff;">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted);">03</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Work</div>
+            </div>
+            <div style="border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; background: #fff;">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted);">04</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Evaluate</div>
+            </div>
+            <div style="border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; background: #fff;">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted);">05</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Verify</div>
+            </div>
+            <div style="border: 1px solid var(--border); padding: 0.85rem; border-radius: 8px; background: #fff;">
+              <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted);">06</div>
+              <div style="font-weight: 700; font-size: 0.95rem;">Release</div>
+            </div>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); max-width: 480px;">
+            Milestone funds are secured upfront and released under the agreed rules. This is not an unconditional payment guarantee.
+          </p>
+        </div>
+
+        <!-- Sign In Card -->
+        <div class="card" style="box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+          <h2 style="font-size: 1.35rem; font-weight: 800; margin-bottom: 0.25rem;">Sign in with your wallet</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Signing proves you control the wallet. It costs no gas and moves no money.
+          </p>
+
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.85rem; margin-bottom: 1rem; font-size: 0.85rem;">
+            <div>
+              <div style="color: var(--text-muted); font-size: 0.75rem;">Connected wallet</div>
+              <div style="font-family: var(--font-mono); font-weight: 600;">0x0000…0001</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="color: var(--text-muted); font-size: 0.75rem;">USDC balance (also pays gas)</div>
+              <div style="font-weight: 700;">62.40 USDC</div>
+            </div>
+          </div>
+
+          <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">You are signing this message</div>
+          <pre class="code-block" style="font-size: 0.75rem; white-space: pre-wrap;">localhost:3001 wants you to sign in with your Ethereum account:
+0x0000…0001
+
+Sign in to TRUSTORA
+
+URI: http://localhost:3001
+Version: 1
+Chain ID: 5042002
+Nonce: FIXTURE-NONCE
+Issued At: 2026-11-06T06:30:00Z
+Expiration Time: 2026-11-06T06:35:00Z</pre>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            This message expires in 5 minutes and can be used once.
+          </div>
+
+          <button class="btn" onclick="handleSignIn()" id="btnSignIn">Sign message</button>
+
+          <div class="notice notice-amber" style="margin-top: 1.25rem; margin-bottom: 0;">
+            <span>⚠️</span>
+            <div>
+              <strong>Wrong network?</strong> Switch your wallet to Arc Testnet (chain ID 5042002). New wallets can get test USDC at faucet.circle.com.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 2: STEP 1 (AGREE) (PDF Page 2)                                     -->
+    <!-- ========================================================================= -->
+    <div id="view-agree" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042</div>
+      <div class="page-title-row">
+        <h1 class="page-title">Responsive landing page</h1>
+        <span class="badge badge-amber" id="agree-status-badge">DRAFT · waiting for freelancer</span>
+      </div>
+      <div class="page-subtitle">Milestone 1 of 1 · Agreement version 1</div>
+
+      <div class="layout-grid">
+        <!-- Left: Acceptance Criteria -->
+        <div>
+          <div class="card">
+            <h2 class="card-title">Acceptance criteria</h2>
+            <p class="card-desc">The AI review checks the submission against these four items only. It never adds requirements.</p>
+
+            <div class="criteria-list">
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-num">1</div>
+                  <div class="criteria-text">Layout adapts at 390, 768 and 1280 px widths with no horizontal scrolling.</div>
+                </div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-num">2</div>
+                  <div class="criteria-text">Hero section contains a headline, a call-to-action button and an image.</div>
+                </div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-num">3</div>
+                  <div class="criteria-text">Contact form has name, email and message fields, each with a label and a visible validation error.</div>
+                </div>
+              </div>
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-num">4</div>
+                  <div class="criteria-text">Every image has alt text.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="notice notice-gray" style="margin-bottom: 0;">
+              <div>Changing scope creates a new version. Both people must accept the new version before funding or review continues.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Milestone terms & Acceptance -->
+        <div>
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Milestone terms</h3>
+            <div class="kv-list" style="margin-top: 1rem;">
+              <div class="kv-item"><span class="kv-label">Amount</span><span class="kv-val">50.00 USDC</span></div>
+              <div class="kv-item"><span class="kv-label">Base units</span><span class="kv-val mono">50000000</span></div>
+              <div class="kv-item"><span class="kv-label">Network</span><span class="kv-val">Arc Testnet</span></div>
+              <div class="kv-item"><span class="kv-label">Deadline</span><span class="kv-val">14 Nov 2026</span></div>
+              <div class="kv-item"><span class="kv-label">Arbiter</span><span class="kv-val mono">0x0000…0003</span></div>
+              <div class="kv-item" style="flex-direction: column; align-items: flex-start; gap: 0.2rem; margin-top: 0.5rem;">
+                <span class="kv-label">Agreement hash (SHA-256)</span>
+                <span class="kv-val mono" style="font-size: 0.72rem; word-break: break-all; color: var(--text-muted);">FIXTURE-0000000000000000000000000000000000000000000000000000</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Acceptance</h3>
+            <div class="kv-list" style="margin-top: 1rem;">
+              <div class="kv-item">
+                <span>Client <span style="font-family: var(--font-mono); color: var(--text-muted);">0x0000…0001</span></span>
+                <span class="badge badge-green">Accepted</span>
+              </div>
+              <div class="kv-item">
+                <span>Freelancer <span style="font-family: var(--font-mono); color: var(--text-muted);">0x0000…0002</span></span>
+                <span class="badge badge-amber" id="badge-freelancer-accept">Waiting</span>
+              </div>
+            </div>
+
+            <button class="btn" onclick="handleAcceptAgreement()" id="btnAcceptAgreement" style="margin-top: 0.75rem;">Accept agreement v1</button>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.65rem;">
+              You are accepting this exact version. Its hash is stored and later checked against the on-chain escrow.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 3: STEP 2 (FUND) (PDF Page 3)                                      -->
+    <!-- ========================================================================= -->
+    <div id="view-fund" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042</div>
+      <div class="page-title-row">
+        <h1 class="page-title">Fund milestone 1</h1>
+      </div>
+      <div class="page-subtitle">
+        Your 50.00 USDC moves into the escrow contract. The freelancer starts work only after our backend has checked the transaction on-chain.
+      </div>
+
+      <div class="layout-grid">
+        <!-- Left: Steps -->
+        <div>
+          <div class="card">
+            <h2 class="card-title">Steps</h2>
+
+            <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.25rem;">
+              <!-- Step 1 -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--green-text);">✓ Approve USDC</div>
+                  <div style="font-size: 0.825rem; color: var(--text-muted);">Lets the escrow contract take exactly 50.00 USDC from your wallet.</div>
+                </div>
+                <span class="badge badge-green">Done</span>
+              </div>
+
+              <!-- Step 2 -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                <div style="flex: 1; padding-right: 1rem;">
+                  <div style="font-weight: 700; font-size: 0.95rem;">2 Fund escrow</div>
+                  <div style="font-size: 0.825rem; color: var(--text-muted);">Sends the funding transaction with the agreement hash.</div>
+                </div>
+                <div style="min-width: 170px;">
+                  <button class="btn" onclick="handleFundEscrow()" id="btnFundEscrow">Fund 50.00 USDC</button>
+                </div>
+              </div>
+
+              <!-- Step 3 -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                <div style="padding-right: 1rem;">
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-muted);">3 Backend verification</div>
+                  <div style="font-size: 0.825rem; color: var(--text-muted);">We read the receipt and the escrow state, and compare amount, token, freelancer and agreement hash.</div>
+                </div>
+                <span class="badge badge-amber" id="badge-fund-verify">PENDING</span>
+              </div>
+
+              <!-- Step 4 -->
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-muted);">4 Funded: work may begin</div>
+                  <div style="font-size: 0.825rem; color: var(--text-muted);">Shown only after step 3 passes. A wallet confirmation alone is never treated as proof.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="notice notice-red" style="margin-top: 1.5rem; margin-bottom: 0;">
+              <span>ℹ️</span>
+              <div>
+                <strong>Example error:</strong> not enough USDC for gas. On Arc, gas is paid in USDC from the same balance. Add test USDC at faucet.circle.com, then try again.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Escrow Terms -->
+        <div>
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Escrow terms</h3>
+            <div class="kv-list" style="margin-top: 1rem;">
+              <div class="kv-item"><span class="kv-label">Token</span><span class="kv-val">USDC (6 decimals)</span></div>
+              <div class="kv-item"><span class="kv-label">Amount</span><span class="kv-val">50.00 USDC</span></div>
+              <div class="kv-item"><span class="kv-label">Freelancer</span><span class="kv-val mono">0x0000…0002</span></div>
+              <div class="kv-item"><span class="kv-label">Arbiter</span><span class="kv-val mono">0x0000…0003</span></div>
+              <div class="kv-item"><span class="kv-label">Deadline</span><span class="kv-val">14 Nov 2026</span></div>
+              <div class="kv-item" style="flex-direction: column; align-items: flex-start; gap: 0.2rem; margin-top: 0.5rem;">
+                <span class="kv-label">Agreement hash (SHA-256)</span>
+                <span class="kv-val mono" style="font-size: 0.72rem; word-break: break-all; color: var(--text-muted);">FIXTURE-0000000000000000000000000000000000000000000000000000</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Your balance</h3>
+            <div style="font-size: 1.85rem; font-weight: 800; margin: 0.35rem 0;">62.40 USDC</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">One balance covers both the escrow amount and transaction fees.</p>
+          </div>
+
+          <div class="card" style="background: #f8fafc; border-style: dashed;">
+            <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.35rem;">Before you fund</h4>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              If a recipient is blocked by the token, a release payout can fail. This is a known limitation of the demo escrow.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 4: STEP 3 (WORK / SUBMIT) (PDF Page 4)                             -->
+    <!-- ========================================================================= -->
+    <div id="view-work" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042</div>
+      <div class="page-title-row">
+        <h1 class="page-title">Submit your work</h1>
+        <span class="badge badge-green">FUNDED · verified by backend</span>
+      </div>
+      <div class="page-subtitle">
+        Upload the deliverable for milestone 1. Its fingerprint is committed on-chain so nobody can swap the file later.
+      </div>
+
+      <div class="layout-grid">
+        <!-- Left: Upload Card -->
+        <div>
+          <div class="card">
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 1rem;">1. Choose a file</h3>
+
+            <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+              <div style="display: flex; align-items: center; gap: 0.85rem;">
+                <div style="width: 40px; height: 40px; border-radius: 8px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">📁</div>
+                <div>
+                  <div style="font-weight: 700; font-size: 0.925rem;">landing-page.zip</div>
+                  <div style="font-size: 0.775rem; color: var(--text-muted);">1.8 MB · zip archive</div>
+                </div>
+              </div>
+              <button class="btn btn-outline" style="width: auto; padding: 0.4rem 0.85rem; font-size: 0.8rem;">Choose a different file</button>
+            </div>
+
+            <div style="font-size: 0.85rem; margin-bottom: 1rem;">
+              <div style="font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem;">File checks</div>
+              <div style="color: var(--green-text); margin-bottom: 0.25rem;">✓ File type matches its contents</div>
+              <div style="color: var(--green-text); margin-bottom: 0.25rem;">✓ Size is within the 25 MB limit</div>
+              <div style="color: var(--green-text); margin-bottom: 0.25rem;">✓ Archive contains no unsafe paths or oversized entries</div>
+            </div>
+
+            <div style="margin-bottom: 1.75rem;">
+              <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.2rem;">File fingerprint (SHA-256)</div>
+              <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); background: #f1f5f9; padding: 0.4rem; border-radius: 4px; word-break: break-all;">
+                FIXTURE-0000000000000000000000000000000000000000000000000000
+              </div>
+            </div>
+
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem;">2. AI review consent</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+              To run the AI evaluation, the contents of your file are sent to the evaluation provider on the 0G network. Do not upload secrets or personal data. The provider mode (and whether a third party receives your content) is shown here once the evaluator team confirms it.
+            </p>
+            <label style="display: flex; align-items: center; gap: 0.65rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; margin-bottom: 1.75rem;">
+              <input type="checkbox" id="checkAiConsent" onchange="toggleAiConsent(this.checked)" checked style="width: 18px; height: 18px;">
+              <span>I understand what is sent and agree to the AI review of this file.</span>
+            </label>
+
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem;">3. Commit on-chain</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+              Your wallet signs a transaction that records the file fingerprint. This costs a small amount of USDC for gas.
+            </p>
+            <button class="btn" onclick="handleSubmitDeliverable()" id="btnSubmitDeliverable">Submit deliverable</button>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;" id="submitDeliverableNote">
+              Disabled until the consent box above is ticked.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Sidebars -->
+        <div>
+          <div class="card">
+            <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.25rem;">Judged against</h4>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Agreement version 1</div>
+            <ol style="font-size: 0.85rem; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.45rem;">
+              <li>Responsive at 390, 768 and 1280 px</li>
+              <li>Hero with headline, button and image</li>
+              <li>Contact form with labels and validation errors</li>
+              <li>Every image has alt text</li>
+            </ol>
+          </div>
+
+          <div class="card notice-red" style="border-radius: 12px; margin-bottom: 1.5rem;">
+            <div style="font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem;">Example: A rejected file</div>
+            <p style="font-size: 0.825rem;">
+              <strong>setup.exe was not accepted.</strong> Program files can't be uploaded. Please send your work as a zip of source files, or as plain text files.
+            </p>
+          </div>
+
+          <div class="card" style="background: #f8fafc; font-size: 0.825rem; color: var(--text-muted);">
+            Your file is stored privately by TRUSTORA. Only its fingerprint goes on-chain.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 5: STEP 4 (EVALUATE / AI REPORT) (PDF Page 5)                      -->
+    <!-- ========================================================================= -->
+    <div id="view-eval" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042</div>
+      <div class="page-title-row">
+        <h1 class="page-title">AI evaluation report</h1>
+        <span class="badge badge-amber">Overall: PARTIAL</span>
+      </div>
+      <div class="page-subtitle">Submission checked against agreement version 1</div>
+
+      <div class="notice notice-blue">
+        <span>ℹ️</span>
+        <div>
+          <strong>This report is advice, not a decision.</strong> The AI can be wrong and cannot release or refund any funds. Only the client's approval or the agreed contract rules move money.
+        </div>
+      </div>
+
+      <div class="layout-grid">
+        <!-- Left: Criteria with Evidence -->
+        <div>
+          <div class="card">
+            <h2 class="card-title">Criteria</h2>
+
+            <div class="criteria-list">
+              <!-- Item 1: PASS -->
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-text">1. Layout adapts at 390, 768 and 1280 px with no horizontal scrolling</div>
+                  <span class="badge badge-green">PASS</span>
+                </div>
+                <div class="criteria-evidence" style="padding-left: 0;">
+                  Evidence: stylesheet defines media queries at 768 px and 480 px, and the main container uses a fluid max-width.
+                </div>
+              </div>
+
+              <!-- Item 2: PASS -->
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-text">2. Hero section has a headline, a call-to-action button and an image</div>
+                  <span class="badge badge-green">PASS</span>
+                </div>
+                <div class="criteria-evidence" style="padding-left: 0;">
+                  Evidence: index.html contains an h1, a button labelled “Get started” and an img element in the hero block.
+                </div>
+              </div>
+
+              <!-- Item 3: PARTIAL -->
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-text">3. Contact form has labelled fields and visible validation errors</div>
+                  <span class="badge badge-amber">PARTIAL</span>
+                </div>
+                <div class="criteria-evidence" style="padding-left: 0;">
+                  Evidence: name and email have labels, but the message field has no label and no validation message is defined in the markup or script.
+                </div>
+              </div>
+
+              <!-- Item 4: FAIL -->
+              <div class="criteria-item">
+                <div class="criteria-header">
+                  <div class="criteria-text">4. Every image has alt text</div>
+                  <span class="badge badge-red">FAIL</span>
+                </div>
+                <div class="criteria-evidence" style="padding-left: 0;">
+                  Evidence: 2 of 3 img elements have an empty or missing alt attribute.
+                </div>
+              </div>
+
+              <!-- Item 5: UNABLE_TO_ASSESS -->
+              <div class="criteria-item" style="background: #f8fafc; border-style: dashed;">
+                <div class="criteria-header">
+                  <div class="criteria-text" style="color: var(--text-muted);">Example of an unreadable item</div>
+                  <span class="badge badge-gray">UNABLE_TO_ASSESS</span>
+                </div>
+                <div class="criteria-evidence" style="padding-left: 0;">
+                  Shown when the AI cannot judge an item from the files it was given, for example a compiled binary.
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div style="border: 1px solid var(--border); padding: 1rem; border-radius: 8px;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem;">Limitations</h4>
+                <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                  <li>Layout was judged from the code, not from rendered screenshots.</li>
+                  <li>Only the four agreed criteria were checked.</li>
+                </ul>
+              </div>
+              <div style="border: 1px solid var(--border); padding: 1rem; border-radius: 8px;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem;">Suggested revisions</h4>
+                <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.35rem;">
+                  <li>Add alt text to the two images that lack it.</li>
+                  <li>Add a label and an error message to the message field.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Sidebars -->
+        <div>
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Evaluation record</h3>
+            <div class="kv-list" style="margin-top: 1rem;">
+              <div class="kv-item"><span class="kv-label">Provider</span><span class="kv-val">0G Private Computer</span></div>
+              <div class="kv-item"><span class="kv-label">Model</span><span class="kv-val mono">FIXTURE-model-id</span></div>
+              <div class="kv-item" style="flex-direction: column; align-items: flex-start; gap: 0.2rem;">
+                <div style="display: flex; justify-content: space-between; width: 100%;">
+                  <span class="kv-label">Inference request ID</span>
+                  <span class="badge badge-purple" style="font-size: 0.65rem;">REQUEST ID · not a tx hash</span>
+                </div>
+                <span class="kv-val mono" style="font-size: 0.72rem; word-break: break-all; color: var(--text-muted);">FIXTURE-REQ-0000000000000000</span>
+              </div>
+              <div class="kv-item"><span class="kv-label">Criteria version</span><span class="kv-val">1</span></div>
+              <div class="kv-item" style="flex-direction: column; align-items: flex-start; gap: 0.2rem;">
+                <span class="kv-label">Report hash (SHA-256)</span>
+                <span class="kv-val mono" style="font-size: 0.72rem; word-break: break-all; color: var(--text-muted);">FIXTURE-0000000000000000000000000000</span>
+              </div>
+              <div class="kv-item"><span class="kv-label">Verification</span><span class="badge badge-amber">PENDING</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Your decision</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0 1.25rem 0;">
+              As the client, you decide. Approving releases 50.00 USDC to the freelancer through the escrow contract.
+            </p>
+            <button class="btn btn-green" onclick="handleApproveRelease()" id="btnApproveRelease">Approve and release 50.00 USDC</button>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.65rem;">
+              Release is confirmed only after our backend checks the transaction on-chain.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 6: STEP 5 (VERIFY / PROOFTRACK) (PDF Page 6)                       -->
+    <!-- ========================================================================= -->
+    <div id="view-verify" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042</div>
+      <div class="page-title-row">
+        <h1 class="page-title">ProofTrack</h1>
+        <button class="btn btn-outline" onclick="handleReverifyAll()" style="width: auto; padding: 0.45rem 1rem; font-size: 0.85rem;" id="btnReverify">Re-verify all</button>
+      </div>
+      <div class="page-subtitle">Every recorded step of this project in one timeline. Each row says what kind of reference it is and whether we have checked it.</div>
+
+      <div class="layout-grid">
+        <!-- Left: Timeline Events -->
+        <div class="timeline" id="timelineContainer">
+          <!-- 1. MILESTONE_FUNDED -->
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-top">
+                <div class="timeline-title">MILESTONE_FUNDED</div>
+                <span class="badge badge-green">VERIFIED</span>
+              </div>
+              <div class="timeline-tags">
+                <span class="badge badge-blue">ARC</span>
+                <span class="badge badge-gray">Arc Testnet</span>
+                <span class="badge badge-blue">TRANSACTION HASH</span>
+              </div>
+              <div class="timeline-ref">FIXTURE-TX-0000000000000000000000000000000000000001</div>
+              <div class="timeline-meta">
+                <span>Last checked 2026-11-06 06:41 UTC</span>
+                <span>Explorer link unavailable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. WORK_SUBMITTED -->
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-top">
+                <div class="timeline-title">WORK_SUBMITTED</div>
+                <span class="badge badge-green">VERIFIED</span>
+              </div>
+              <div class="timeline-tags">
+                <span class="badge badge-blue">ARC</span>
+                <span class="badge badge-gray">Arc Testnet</span>
+                <span class="badge badge-blue">TRANSACTION HASH</span>
+              </div>
+              <div class="timeline-ref">FIXTURE-TX-0000000000000000000000000000000000000002</div>
+              <div style="font-size: 0.825rem; color: #334155; margin-bottom: 0.45rem;">On-chain value matches the SHA-256 of the uploaded file.</div>
+              <div class="timeline-meta">
+                <span>Last checked 2026-11-06 06:52 UTC</span>
+                <span>Explorer link unavailable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. EVALUATION_COMPLETED -->
+          <div class="timeline-item">
+            <div class="timeline-dot pending"></div>
+            <div class="timeline-content">
+              <div class="timeline-top">
+                <div class="timeline-title">EVALUATION_COMPLETED</div>
+                <span class="badge badge-amber">PENDING</span>
+              </div>
+              <div class="timeline-tags">
+                <span class="badge badge-purple">0G</span>
+                <span class="badge badge-gray">0G network</span>
+                <span class="badge badge-purple">INFERENCE REQUEST ID</span>
+              </div>
+              <div class="timeline-ref">FIXTURE-REQ-0000000000000000</div>
+              <div style="font-size: 0.825rem; color: #334155; margin-bottom: 0.45rem;">
+                A request ID is not a transaction hash. We have not been able to confirm it with the provider, so it is not marked verified.
+              </div>
+              <div class="timeline-meta">
+                <span>Last checked 2026-11-06 07:05 UTC</span>
+                <span>Explorer link unavailable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. MILESTONE_APPROVED -->
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-top">
+                <div class="timeline-title">MILESTONE_APPROVED</div>
+                <span class="badge badge-green">VERIFIED</span>
+              </div>
+              <div class="timeline-tags">
+                <span class="badge badge-blue">ARC</span>
+                <span class="badge badge-gray">Arc Testnet</span>
+                <span class="badge badge-blue">TRANSACTION HASH</span>
+              </div>
+              <div class="timeline-ref">FIXTURE-TX-0000000000000000000000000000000000000003</div>
+              <div class="timeline-meta">
+                <span>Last checked 2026-11-06 07:20 UTC</span>
+                <span>Explorer link unavailable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. PAYMENT_RELEASED -->
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-top">
+                <div class="timeline-title">PAYMENT_RELEASED</div>
+                <span class="badge badge-green">VERIFIED</span>
+              </div>
+              <div class="timeline-tags">
+                <span class="badge badge-blue">ARC</span>
+                <span class="badge badge-gray">Arc Testnet</span>
+                <span class="badge badge-blue">TRANSACTION HASH</span>
+              </div>
+              <div class="timeline-ref">FIXTURE-TX-0000000000000000000000000000000000000004</div>
+              <div style="font-size: 0.825rem; color: #334155; margin-bottom: 0.45rem;">
+                50.00 USDC left escrow to the freelancer wallet. Amount and recipient match the agreement.
+              </div>
+              <div class="timeline-meta">
+                <span>Last checked 2026-11-06 07:21 UTC</span>
+                <span>Explorer link unavailable</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Sidebars -->
+        <div>
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Status key</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.825rem; margin-top: 1rem;">
+              <div>
+                <span class="badge badge-green" style="margin-bottom: 0.25rem;">VERIFIED</span>
+                <div style="color: var(--text-muted);">Our backend read the record and it matches the agreement.</div>
+              </div>
+              <div>
+                <span class="badge badge-amber" style="margin-bottom: 0.25rem;">PENDING</span>
+                <div style="color: var(--text-muted);">Recorded but not yet checked, or the check could not finish.</div>
+              </div>
+              <div>
+                <span class="badge badge-red" style="margin-bottom: 0.25rem;">FAILED</span>
+                <div style="color: var(--text-muted);">Checked and did not match.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">Reference types</h3>
+            <p style="font-size: 0.825rem; color: var(--text-muted); margin: 0.45rem 0 0.85rem 0;">
+              Not every ID is a transaction. Labels are colored by type so a request ID is never mistaken for a transaction hash.
+            </p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <span class="badge badge-blue">TRANSACTION HASH</span>
+              <span class="badge badge-purple">INFERENCE REQUEST ID</span>
+            </div>
+          </div>
+
+          <div class="card" style="background: #f8fafc;">
+            <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem;">Explorer links</h4>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              Links to public block explorers appear only once the exact URL format is confirmed for each network. Until then, copy the hash and search it yourself.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- SCREEN 7: STEP 6 (VERIFIED INFRASTRUCTURE) (PDF Page 7)                   -->
+    <!-- ========================================================================= -->
+    <div id="view-infra" class="view-panel">
+      <div class="page-title-row">
+        <h1 class="page-title">Verified infrastructure</h1>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Last checked 2026-11-06 07:30 UTC</div>
+      </div>
+      <div class="page-subtitle">What TRUSTORA connects to, and what we have actually confirmed. Nothing here is marked connected unless a live check passed.</div>
+
+      <!-- 3 Service Cards in Row -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1.75rem;">
+        <!-- Arc -->
+        <div class="card" style="margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 800;">Arc</h3>
+            <span class="badge badge-green">CONNECTED</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Escrow and payments</div>
+          <div class="kv-list" style="font-size: 0.8rem;">
+            <div class="kv-item"><span class="kv-label">Network</span><span class="kv-val">Arc Testnet</span></div>
+            <div class="kv-item"><span class="kv-label">Chain ID</span><span class="kv-val mono">5042002</span></div>
+            <div class="kv-item"><span class="kv-label">Escrow contract</span><span class="kv-val mono">FIXTURE-0x0000…0004</span></div>
+            <div class="kv-item"><span class="kv-label">Token</span><span class="kv-val">USDC (6 decimals)</span></div>
+          </div>
+          <div style="font-size: 0.775rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+            The backend read the chain ID and contract code from the RPC just now.
+          </div>
+        </div>
+
+        <!-- 0G -->
+        <div class="card" style="margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 800;">0G</h3>
+            <span class="badge badge-amber">ACTIVITY_DETECTED</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">AI evaluation</div>
+          <div class="kv-list" style="font-size: 0.8rem;">
+            <div class="kv-item"><span class="kv-label">Provider mode</span><span class="kv-val">To be confirmed</span></div>
+            <div class="kv-item"><span class="kv-label">Model</span><span class="kv-val mono">FIXTURE-model-id</span></div>
+            <div class="kv-item"><span class="kv-label">Last request ID</span><span class="kv-val mono">FIXTURE-REQ-…0000</span></div>
+          </div>
+          <div style="font-size: 0.775rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+            We saw inference activity for this account, but cannot yet independently confirm the provider’s own records. Evaluation results stay advisory.
+          </div>
+        </div>
+
+        <!-- Hedera -->
+        <div class="card" style="margin-bottom: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 800;">Hedera</h3>
+            <span class="badge badge-gray">NOT_CONFIGURED</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Agent payments (stretch goal)</div>
+          <div class="kv-list" style="font-size: 0.8rem;">
+            <div class="kv-item"><span class="kv-label">Network</span><span class="kv-val">Not set</span></div>
+            <div class="kv-item"><span class="kv-label">Facilitator</span><span class="kv-val">Not set</span></div>
+            <div class="kv-item"><span class="kv-label">Agent payments</span><span class="kv-val">Off in this demo</span></div>
+          </div>
+          <div style="font-size: 0.775rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.75rem;">
+            This integration is optional and is not part of the core escrow flow. It is shown here so its absence is visible, not hidden.
+          </div>
+        </div>
+      </div>
+
+      <!-- Lower 2 Cards -->
+      <div class="layout-grid" style="grid-template-columns: 1.5fr 1fr;">
+        <div class="card">
+          <h3 class="card-title" style="font-size: 1.1rem;">Operated by TRUSTORA</h3>
+          <p class="card-desc">Some parts run on servers we control. They are labelled so nobody mistakes them for decentralized services.</p>
+          <div class="kv-list">
+            <div class="kv-item" style="border-bottom: 1px solid var(--border); padding-bottom: 0.65rem;">
+              <span><strong>Backend API</strong> · verifies chain records, stores files privately</span>
+              <span class="badge badge-blue">TRUSTORA-OPERATED</span>
+            </div>
+            <div class="kv-item" style="border-bottom: 1px solid var(--border); padding-bottom: 0.65rem;">
+              <span><strong>Arbiter wallet</strong> · resolves disputes in the demo</span>
+              <span class="badge badge-blue">TRUSTORA-OPERATED</span>
+            </div>
+            <div class="kv-item">
+              <span><strong>Database</strong> · agreements, versions, timeline events</span>
+              <span class="badge badge-blue">TRUSTORA-OPERATED</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title" style="font-size: 1.1rem;">Status legend</h3>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.825rem; margin-top: 0.85rem;">
+            <div>
+              <span class="badge badge-green">CONNECTED</span>
+              <div style="color: var(--text-muted); margin-top: 0.2rem;">A live check passed in the last few minutes.</div>
+            </div>
+            <div>
+              <span class="badge badge-amber">ACTIVITY_DETECTED</span>
+              <div style="color: var(--text-muted); margin-top: 0.2rem;">We saw signs of use but could not confirm independently.</div>
+            </div>
+            <div>
+              <span class="badge badge-gray">NOT_CONFIGURED</span>
+              <div style="color: var(--text-muted); margin-top: 0.2rem;">Not set up. Nothing is claimed.</div>
+            </div>
+            <div>
+              <span class="badge badge-red">BLOCKED</span>
+              <div style="color: var(--text-muted); margin-top: 0.2rem;">Set up, but something outside our control stops it working.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- BONUS SCREEN: SCOPEGUARD INSPECTOR (Testing Feature)                       -->
+    <!-- ========================================================================= -->
+    <div id="view-scopeguard" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042 · SCOPEGUARD ENGINE</div>
+      <div class="page-title-row">
+        <h1 class="page-title">ScopeGuard Scope Change Detector</h1>
+        <span class="badge badge-amber" id="scopeguard-risk-pill">RISK: MEDIUM</span>
+      </div>
+      <div class="page-subtitle">Protects clients and freelancers from scope creep. Compares proposed changes against previously agreed terms without overwriting accepted agreements.</div>
+
+      <div class="layout-grid">
+        <div class="card">
+          <h3 class="card-title">Version Comparison (v1 → v2)</h3>
+          <p class="card-desc">Detailed criteria and parameter shifts detected by ScopeGuard.</p>
+
+          <div class="criteria-list">
+            <div class="criteria-item">
+              <div class="criteria-header">
+                <div class="criteria-text">Layout adapts at 390, 768 and 1280 px widths with no horizontal scrolling</div>
+                <span class="badge badge-gray">UNCHANGED</span>
+              </div>
+            </div>
+            <div class="criteria-item">
+              <div class="criteria-header">
+                <div class="criteria-text">Add dark mode toggle and support system preference</div>
+                <span class="badge badge-blue">ADDED</span>
+              </div>
+              <div class="criteria-evidence" style="padding-left: 0; color: #1e40af;">
+                New criterion added in version 2 proposal. Requires dual approval.
+              </div>
+            </div>
+          </div>
+
+          <div class="kv-list" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+            <div class="kv-item"><span class="kv-label">Timeline Shift</span><span class="kv-val">+5 days (to 19 Nov 2026)</span></div>
+            <div class="kv-item"><span class="kv-label">Budget Shift</span><span class="kv-val">+10.00 USDC (to 60.00 USDC)</span></div>
+            <div class="kv-item"><span class="kv-label">Approval Status</span><span class="badge badge-amber">PENDING (Waiting for freelancer)</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3 class="card-title" style="font-size: 1.05rem;">ScopeGuard Risk Ratings</h3>
+            <div class="kv-list" style="margin-top: 1rem;">
+              <div class="kv-item"><span class="kv-label">Timeline Risk</span><span class="badge badge-amber">MEDIUM (+5 days)</span></div>
+              <div class="kv-item"><span class="kv-label">Cost Risk</span><span class="badge badge-green">LOW (+20%)</span></div>
+              <div class="kv-item"><span class="kv-label">Overall Risk</span><span class="badge badge-amber">MEDIUM</span></div>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+              ScopeGuard enforces that terms can never be silently overwritten. Both client and freelancer must independently sign off on Version 2 before funds or work can proceed.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- BONUS SCREEN: TRUSTSHIELD ANALYTICS (Testing Feature)                     -->
+    <!-- ========================================================================= -->
+    <div id="view-trustshield" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042 · TRUSTSHIELD ENGINE</div>
+      <div class="page-title-row">
+        <h1 class="page-title">TrustShield Reliability Analytics</h1>
+        <span class="badge badge-green">OVERALL RISK: LOW</span>
+      </div>
+      <div class="page-subtitle">Behavioral risk heuristics evaluating schedule adherence, scope churn, revisions, and dispute likelihood. Explainable and advisory only.</div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 1.5rem;">
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+            <h4 style="font-weight: 700;">Deadline Adherence</h4>
+            <span class="badge badge-green">LOW RISK</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">All milestones are within their agreed schedule. Zero past-deadline deliverables.</p>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+            <h4 style="font-weight: 700;">Scope Volatility</h4>
+            <span class="badge badge-green">LOW RISK</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Agreement scope maintained with minimal changes (1 version proposed).</p>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+            <h4 style="font-weight: 700;">Submission & Revision History</h4>
+            <span class="badge badge-green">LOW RISK</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">First-time submission on schedule without repeated rejection cycles.</p>
+        </div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
+            <h4 style="font-weight: 700;">Dispute & Arbitration History</h4>
+            <span class="badge badge-green">LOW RISK</span>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Zero active disputes or arbitration claims on this project.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- BONUS SCREEN: UNIFIED TRUST REPORT (Testing Feature)                      -->
+    <!-- ========================================================================= -->
+    <div id="view-trustreport" class="view-panel">
+      <div class="project-header-id">TRU-PROJ-2026-0001042 · UNIFIED TRUST REPORT</div>
+      <div class="page-title-row">
+        <h1 class="page-title">Unified Trust & Completion Report</h1>
+        <span class="badge badge-green">VERIFIABLE REPORT</span>
+      </div>
+      <div class="page-subtitle">Cryptographic aggregation of TAEVA, ScopeGuard, TrustShield, and ProofTrack into a single tamper-evident audit report.</div>
+
+      <div class="card">
+        <h3 class="card-title">Cryptographic Report Fingerprint</h3>
+        <div class="kv-list" style="margin-top: 1rem;">
+          <div class="kv-item"><span class="kv-label">Payment Mode</span><span class="badge badge-blue">ARC_ESCROW (Optional Escrow Supported)</span></div>
+          <div class="kv-item"><span class="kv-label">Report Timestamp</span><span class="kv-val">2026-11-06T12:00:00.000Z</span></div>
+          <div class="kv-item"><span class="kv-label">TAEVA Evaluations</span><span class="kv-val">1 Milestone Evaluated (Overall: PARTIAL)</span></div>
+          <div class="kv-item"><span class="kv-label">ScopeGuard Status</span><span class="kv-val">1 Active Version · 0 Unapproved Proposals</span></div>
+          <div class="kv-item"><span class="kv-label">TrustShield Risk</span><span class="badge badge-green">LOW RISK (Confidence 95%)</span></div>
+          <div class="kv-item"><span class="kv-label">ProofTrack Evidence</span><span class="kv-val">5 Events (4 VERIFIED, 1 PENDING)</span></div>
+          <div class="kv-item" style="flex-direction: column; align-items: flex-start; gap: 0.25rem; margin-top: 0.75rem;">
+            <span class="kv-label">SHA-256 Verifiable Report Hash</span>
+            <div style="font-family: var(--font-mono); font-size: 0.8rem; background: #0f172a; color: #38bdf8; padding: 0.6rem 0.85rem; border-radius: 6px; width: 100%; word-break: break-all;">
+              7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069 <!-- secret-scan:allow -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Sticky Bottom Bar -->
+  <footer class="app-footer">
+    Testnet only <span>·</span> Unaudited contract <span>·</span> Centralized arbiter <span>·</span> AI evaluation is advisory and cannot release funds
+  </footer>
+
+  <script>
+    // State
+    const state = {
+      isFixtureMode: true,
+      currentView: 'signin',
+      clientAccepted: true,
+      freelancerAccepted: false,
+      isFunded: false,
+      isSubmitted: false,
+      isReleased: false,
+      aiConsentGiven: true
+    };
+
+    function switchView(viewName) {
+      state.currentView = viewName;
+      // Hide all views
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-view'));
+      // Show selected
+      const target = document.getElementById('view-' + viewName);
+      if (target) target.classList.add('active-view');
+
+      // Update nav buttons
+      document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById('nav-' + viewName);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function toggleFixtureMode() {
+      state.isFixtureMode = !state.isFixtureMode;
+      const pill = document.getElementById('fixturePill');
+      if (state.isFixtureMode) {
+        pill.innerText = 'FIXTURE DATA';
+        pill.style.background = 'var(--amber-bg)';
+        pill.style.color = 'var(--amber-text)';
+      } else {
+        pill.innerText = 'LIVE API (PORT 3001)';
+        pill.style.background = 'var(--green-bg)';
+        pill.style.color = 'var(--green-text)';
+      }
+    }
+
+    function handleSignIn() {
+      const btn = document.getElementById('btnSignIn');
+      btn.innerText = 'Connecting...';
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.innerText = 'Sign message';
+        btn.disabled = false;
+        document.getElementById('nav-signin').classList.add('done');
+        document.getElementById('nav-signin').innerHTML = '0 Sign In ✓';
+        switchView('agree');
+      }, 500);
+    }
+
+    function handleAcceptAgreement() {
+      const btn = document.getElementById('btnAcceptAgreement');
+      btn.innerText = 'Accepted!';
+      btn.disabled = true;
+      state.freelancerAccepted = true;
+      document.getElementById('badge-freelancer-accept').className = 'badge badge-green';
+      document.getElementById('badge-freelancer-accept').innerText = 'Accepted';
+      document.getElementById('agree-status-badge').className = 'badge badge-green';
+      document.getElementById('agree-status-badge').innerText = 'AGREED · ready to fund';
+      document.getElementById('nav-agree').classList.add('done');
+      document.getElementById('check-agree').innerText = '✓';
+
+      setTimeout(() => {
+        switchView('fund');
+      }, 700);
+    }
+
+    function handleFundEscrow() {
+      const btn = document.getElementById('btnFundEscrow');
+      btn.innerText = 'Confirming on Arc...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        document.getElementById('badge-fund-verify').className = 'badge badge-green';
+        document.getElementById('badge-fund-verify').innerText = 'VERIFIED';
+        document.getElementById('nav-fund').classList.add('done');
+        document.getElementById('check-fund').innerText = '✓';
+        state.isFunded = true;
+        setTimeout(() => {
+          switchView('work');
+        }, 600);
+      }, 900);
+    }
+
+    function toggleAiConsent(checked) {
+      state.aiConsentGiven = checked;
+      const btn = document.getElementById('btnSubmitDeliverable');
+      const note = document.getElementById('submitDeliverableNote');
+      if (checked) {
+        btn.disabled = false;
+        note.style.display = 'none';
+      } else {
+        btn.disabled = true;
+        note.style.display = 'block';
+      }
+    }
+
+    function handleSubmitDeliverable() {
+      const btn = document.getElementById('btnSubmitDeliverable');
+      btn.innerText = 'Calculating SHA-256 & Submitting...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        document.getElementById('nav-work').classList.add('done');
+        document.getElementById('check-work').innerText = '✓';
+        state.isSubmitted = true;
+        switchView('eval');
+      }, 800);
+    }
+
+    function handleApproveRelease() {
+      const btn = document.getElementById('btnApproveRelease');
+      btn.innerText = 'Releasing 50.00 USDC...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        document.getElementById('nav-eval').classList.add('done');
+        document.getElementById('check-eval').innerText = '✓';
+        state.isReleased = true;
+        switchView('verify');
+      }, 800);
+    }
+
+    function handleReverifyAll() {
+      const btn = document.getElementById('btnReverify');
+      btn.innerText = 'Re-verifying with Arc & 0G...';
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.innerText = 'All Verified!';
+        setTimeout(() => {
+          btn.innerText = 'Re-verify all';
+          btn.disabled = false;
+        }, 1200);
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import cookie from "@fastify/cookie";
 import { createArkivAdapterFromEnv, loadArkivConfig } from "@trustora/arkiv";
 import { createWalletAuthVerifier } from "@trustora/security";
@@ -57,6 +60,14 @@ export const buildApp = (options: BuildAppOptions = {}) => {
   app.register(cookie);
 
   app.get("/health", async () => ({ ok: true }));
+
+  const webIndexPath = join(dirname(fileURLToPath(import.meta.url)), "../../web/index.html");
+  app.get("/", async (_request, reply) => {
+    if (existsSync(webIndexPath)) {
+      return reply.type("text/html").send(readFileSync(webIndexPath, "utf-8"));
+    }
+    return reply.send({ ok: true, name: "TrustOra API" });
+  });
 
   const sessions = createSessionCodec(config.sessionSecret, now);
   const verifier = createWalletAuthVerifier({
