@@ -17,3 +17,4 @@ export {
   type WalletAuthConfig,
   type WalletAuthService,
 } from "./walletAuth.js";
+export { DEFAULT_UPLOAD_POLICY, uploadValidator } from "./uploadValidator.js";
