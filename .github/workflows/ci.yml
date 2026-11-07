@@ -17,6 +17,23 @@ jobs:
     name: Tests, contracts, types, build, and dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: trustora
+          POSTGRES_PASSWORD: trustora
+          POSTGRES_DB: trustora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trustora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_PRISMA_URL: postgresql://trustora:trustora@localhost:5432/trustora
+      POSTGRES_URL_NON_POOLING: postgresql://trustora:trustora@localhost:5432/trustora
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -32,6 +49,9 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate --schema apps/web/prisma/schema.prisma
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy --schema apps/web/prisma/schema.prisma
 
       - name: Unit, API, and Hardhat tests
         run: npm test

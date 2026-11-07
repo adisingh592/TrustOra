@@ -399,7 +399,7 @@ Open the explorer links for the verified project, milestone, funding, deliverabl
 - [ ] Connect a real Hedera x402 facilitator
 - [ ] Complete Hedera consent, payment, idempotency, and Mirror Node verification
 - [ ] Add a public ProofTrack verification page
-- [ ] Replace local SQLite with managed PostgreSQL for production concurrency
+- [x] Replace local SQLite with managed PostgreSQL for production concurrency
 - [ ] Configure production origin, secure cookies, trusted proxy, backups, monitoring, and alerts
 - [ ] Run a browser automation suite with MetaMask or a controlled wallet harness
 
@@ -407,9 +407,9 @@ Open the explorer links for the verified project, milestone, funding, deliverabl
 
 This prototype should not be presented as production-ready until:
 
-- SQLite is replaced by a persistent production database suitable for concurrent writes.
-- A safe migration and backup process is established for that database.
-- Rate limiting moves to a deployment-appropriate shared store or trusted edge layer.
+- ~~SQLite is replaced by a persistent production database suitable for concurrent writes~~ — done: Postgres via Prisma (see `apps/web/prisma/schema.prisma` and `docs/DEPLOYMENT.md`).
+- A backup/restore process and migration review step are established for that database beyond the baseline `prisma migrate deploy` run on build.
+- ~~Rate limiting moves to a deployment-appropriate shared store~~ — done: it now lives in the same Postgres database (`RateLimitBucket`), persistent and shared across serverless instances. A dedicated edge-layer limiter is still not configured.
 - Production origin/domain validation is configured and tested.
 - Arc contract address and bytecode/state are independently verified in the deployment environment.
 - 0G credentials, provider response handling, and operational limits are configured.

@@ -1,13 +1,14 @@
 /**
- * Integration test: real route handlers + real SQLite (scratch file) + a mocked Arc chain.
+ * Integration test: real route handlers + real Postgres (scratch schema) + a mocked Arc chain.
  * Run with TSX_TSCONFIG_PATH=apps/web/tsconfig.json so the "@/" alias resolves (see root package.json).
  * No network, no real keys: wallets are ephemeral in-test keys and the chain is an in-memory fake.
+ * Requires POSTGRES_PRISMA_URL/POSTGRES_URL_NON_POOLING to point at a reachable Postgres (CI runs one
+ * as a service container; locally point them at any disposable Postgres instance).
  */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { encodeAbiParameters, encodeEventTopics } from "viem";
@@ -25,7 +26,7 @@ const client = privateKeyToAccount(generatePrivateKey());
 const freelancer = privateKeyToAccount(generatePrivateKey());
 const stranger = privateKeyToAccount(generatePrivateKey());
 
-let dir: string;
+let schemaName: string;
 let db: PrismaClient;
 let arcPublicClient: any;
 const routes: Record<string, any> = {};
@@ -94,19 +95,21 @@ before(async () => {
   for (const k of Object.keys(process.env)) if (k.startsWith("ZG_")) delete process.env[k]; // never call a real AI provider
   process.env.ESCROW_CONTRACT_ADDRESS = ESCROW;
 
-  dir = mkdtempSync(join(tmpdir(), "trustora-it-"));
-  const schema = readFileSync(join(__dirname, "../prisma/schema.prisma"), "utf8").replace("file:./dev.db", `file:${join(dir, "test.db")}`);
-  const schemaPath = join(dir, "schema.prisma");
-  writeFileSync(schemaPath, schema);
+  const base = process.env.POSTGRES_URL_NON_POOLING ?? process.env.POSTGRES_PRISMA_URL;
+  if (!base) throw new Error("Set POSTGRES_PRISMA_URL/POSTGRES_URL_NON_POOLING to a reachable Postgres instance to run this test.");
+  schemaName = `trustora_it_${randomBytes(6).toString("hex")}`;
+  const testUrl = new URL(base);
+  testUrl.searchParams.set("schema", schemaName);
+
+  const schemaPath = join(__dirname, "../prisma/schema.prisma");
   const prismaCli = require.resolve("prisma/build/index.js");
   execFileSync(process.execPath, [prismaCli, "db", "push", "--skip-generate", "--schema", schemaPath], {
     stdio: "pipe",
-    // Prisma 5.22's SQLite schema engine otherwise exits with an empty error in this test setup.
-    env: { ...process.env, RUST_LOG: "info" },
+    env: { ...process.env, POSTGRES_PRISMA_URL: testUrl.toString(), POSTGRES_URL_NON_POOLING: testUrl.toString() },
   });
 
-  db = new PrismaClient({ datasourceUrl: `file:${join(dir, "test.db")}` });
-  (globalThis as any).prisma = db; // lib/prisma.ts reuses this instead of opening dev.db
+  db = new PrismaClient({ datasourceUrl: testUrl.toString() });
+  (globalThis as any).prisma = db; // lib/prisma.ts reuses this instead of opening the shared database
 
   arcPublicClient = (await import("../src/lib/arc")).arcPublicClient;
   arcPublicClient.getTransactionReceipt = async ({ hash }: { hash: string }) => {
@@ -141,8 +144,8 @@ before(async () => {
 });
 
 after(async () => {
+  if (schemaName) await db?.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
   await db?.$disconnect();
-  if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
 // Shared across the ordered tests below.
