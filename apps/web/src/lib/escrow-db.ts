@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 import { arcPublicClient, getEscrowAddress } from "./arc";
-import { recordProofTrackEvent } from "./prooftrack";
+import { recordProofTrackEvent, recordHederaAuditEvent } from "./prooftrack";
 import { ACTION_ROLES, canPerform, isParticipant } from "./authz";
 import { authErrorResponse, requireAccountRole, requireSession } from "./session";
 import {
@@ -158,6 +158,15 @@ export async function syncEscrowTx(params: {
     referenceValue: verified.txHash,
     verificationStatus: "VERIFIED",
   });
+
+  if (action === "release") {
+    await recordHederaAuditEvent({
+      projectId,
+      activityType: "MILESTONE_COMPLETED",
+      referenceValue: `${projectId}-HCS-MS-${milestone.milestoneIndex}-RELEASE`,
+      verificationStatus: "PENDING",
+    });
+  }
 
   const updated = await prisma.milestone.findUnique({ where: { id: milestoneId } });
   return NextResponse.json({

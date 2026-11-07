@@ -9,6 +9,22 @@ import {
 
 export { generateProjectId };
 
+export async function recordHederaAuditEvent(params: {
+  projectId: string;
+  activityType: "AGREEMENT_ACCEPTED" | "MILESTONE_COMPLETED" | "ACTIVITY_VERIFIED" | "AUDIT_REFERENCE";
+  referenceValue: string;
+  verificationStatus?: VerificationStatus;
+}) {
+  return recordProofTrackEvent({
+    projectId: params.projectId,
+    ecosystem: "HEDERA",
+    eventType: `HEDERA_${params.activityType}`,
+    referenceType: "APPLICATION_EVENT_ID",
+    referenceValue: params.referenceValue,
+    verificationStatus: params.verificationStatus ?? "PENDING",
+  });
+}
+
 export async function recordProofTrackEvent(params: {
   projectId: string;
   sequence?: number;

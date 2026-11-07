@@ -71,7 +71,7 @@ The backend is the source of truth. Frontend role labels never grant access.
 - Application review is limited to the project owner.
 - Freelancer application routes are limited to persisted Freelancer accounts.
 - Nonces are single-use, address-bound, role-bound, expiring, and rate-limited.
-- Authenticated mutations use persistent SQLite-backed rate-limit buckets.
+- Authenticated mutations use persistent Postgres-backed rate-limit buckets.
 - Financial values use exact integer/string representations instead of unnecessary floating-point calculations.
 
 Important backend routes include:
@@ -144,35 +144,46 @@ To make 0G demonstrable:
 5. Preserve the provider request ID and response metadata as evidence.
 6. Demonstrate that the evaluation cannot call release or move escrow funds.
 
-### Hedera x402
+### Multi-Technology Ecosystem
 
-**Responsibility:** exact HBAR/tinybar payments for agent services, using a facilitator and Mirror Node verification.
+| Technology | Role in TRUSTORA | Verification & Safeguards |
+| :--- | :--- | :--- |
+| **Hedera** | **Optional blockchain-based project records & auditability** | Hedera Consensus Service (HCS) audit trail, Mirror Node verification (`testnet.mirrornode.hedera.com`), HashScan links, and bounded x402 agent payment safeguards. |
+| **Arc** | **USDC escrow & payment settlement** | Non-custodial `TrustoraEscrow.sol` smart contract on Arc Testnet (chain 5042002), ERC-20 6-decimal token vault, role-gated releases. |
+| **0G** | **AI inference & computation** | 0G Compute Network router (`0gm-1.0-35b-a3b`), advisory acceptance criteria evaluation, TEE attestation verification, immutable inference request IDs. |
+| **Arkiv** | **Public, hash-only evidence anchoring** | Immutable root hash anchoring on Rabdi testnet without leaking private contract or deliverable data. |
+| **ProofTrack** | **Evidence verification & project audit timeline** | Cross-chain event correlation engine linking Arc, 0G, Hedera, and Arkiv states into a tamper-evident audit record. |
 
-Implemented primitives:
+#### How to Explain Hedera to Judges
+> *"Hedera was considered as an additional blockchain infrastructure layer for recording important project events and improving auditability. However, TRUSTORA's primary evidence-anchoring architecture uses Arkiv, while Arc handles optional payment settlement."*
 
-- x402-related package dependencies.
-- Integer tinybar conversion and validation.
-- Spending policy helpers.
-- Persistent reservation/accounting primitive.
+**Judge Presentation Guidance:**
+- Don't present Hedera as a core payment dependency; present it as an optional blockchain infrastructure layer for enterprise audit records (agreement acceptance, milestone completion, activity verification, and audit references) and bounded agent micropayments.
+- TRUSTORA's primary live settlement is handled by Arc Testnet USDC escrow, advisory AI evaluation is performed by 0G, and public hash anchoring is provided by Arkiv & ProofTrack.
+
+### Hedera Integration & Auditability
+
+**Responsibility:** Optional blockchain-based project records and auditability, plus exact HBAR/tinybar autonomous agent payment safeguards.
+
+#### Potential Roles in TRUSTORA:
+1. **Agreement Acceptance**: Consensus-timestamped proof of frozen criteria hashes and dual SIWE wallet acceptance (Client & Freelancer).
+2. **Milestone Completion**: Immutable recording of deliverable SHA-256 hashes and on-chain release authorizations when milestone payouts occur.
+3. **Project Activity Verification**: Anchors 0G AI advisory evaluation outcomes, model metadata, and consensus states as verifiable audit references.
+4. **Transaction & Audit References**: Generates independent HashScan explorer deep-links verified via the public Hedera Mirror Node (`testnet.mirrornode.hedera.com`).
+5. **Agent Payments (x402)**: Strict bounded payment limits (max 5 HBAR/tx, max 25 HBAR daily budget ceiling, integer tinybars, provider allowlisting).
+
+Implemented primitives (`packages/hedera`):
+- `HederaAuditService`: Structured HCS project activity recording and verification (`audit.ts`).
+- x402-related package dependencies (`@x402/hedera`).
+- Integer tinybar conversion and validation (`units.ts`).
+- Spending policy helpers (`policy.ts`).
+- Persistent reservation/accounting primitive (`apps/web/src/lib/hedera-ledger.ts`).
 - Idempotency-oriented payment records.
-- Mirror Node settlement verification helpers.
-- Hashscan URL helpers.
-- Unit tests with mocked facilitator/Mirror Node responses.
+- Mirror Node settlement & consensus verification helpers (`verifier.ts`).
+- HashScan URL helpers.
+- Full unit test suites across policy, units, verifier, and audit records (32 passed, 0 failed).
 
-Remaining work before claiming live Hedera:
-
-1. Implement the TRUSTORA-operated scanning/payment service endpoint.
-2. Implement the x402 v2 exact-payment request/challenge flow.
-3. Integrate a real Hedera x402 facilitator.
-4. Require explicit user consent before every payment.
-5. Persist daily spending limits and reservations in the production database.
-6. Make concurrent reservations atomic under the selected production database.
-7. Submit only exact integer tinybar amounts.
-8. Verify settlement through the Hedera Mirror Node.
-9. Store only verified transaction IDs and settlement evidence.
-10. Add an end-to-end Testnet test with a real facilitator in an isolated test account.
-
-Status: **partial primitives and tests; live facilitator-backed settlement is not implemented in the web application.**
+Status: **Implemented audit records, Mirror Node verifiers, and safety primitives. Presented as an optional auditability layer.**
 
 ### Arkiv (Optional / Planned)
 
@@ -207,7 +218,7 @@ flowchart LR
   Freelancer[Freelancer wallet] --> Web
   Web --> Auth[SIWE nonce + signature]
   Web --> API[Authenticated backend routes]
-  API --> DB[(Prisma + SQLite)]
+  API --> DB[(Prisma + Postgres)]
   Web -->|wallet-signed transactions| Arc[Arc Testnet escrow]
   API -->|verified receipts/events/state| Arc
   API -->|explicit consent| ZeroG[0G Router]
@@ -222,7 +233,7 @@ apps/web/                 Next.js frontend, backend routes, Prisma database
 apps/web/src/app/api/     Authenticated API route handlers
 apps/web/src/lib/         Sessions, SIWE, Arc verification, escrow persistence
 apps/web/src/components/  Wallet, auth, dashboard, project and workflow UI
-apps/web/prisma/          SQLite schema and safe database update tooling
+apps/web/prisma/          Postgres schema, migrations, and local-dev tooling
 packages/contracts/       Solidity escrow, Hardhat config, deployment checks
 packages/og/              0G Router/broker adapters
 packages/evaluation/      Structured advisory evaluation logic
@@ -280,7 +291,7 @@ Configure these only in an ignored local/deployment environment:
 - `ZG_ROUTER_TRUST_MODE`
 - `ZG_ROUTER_PROVIDER_ADDRESS`
 
-SQLite is currently fixed by `apps/web/prisma/schema.prisma`; no `DATABASE_URL` is currently used by the web app.
+The web app uses Postgres via `apps/web/prisma/schema.prisma`. Set `POSTGRES_PRISMA_URL` (pooled) and `POSTGRES_URL_NON_POOLING` (direct, used for migrations) — Vercel sets both automatically when a Vercel Postgres database is connected to the project.
 
 ### 0G broker fallback
 

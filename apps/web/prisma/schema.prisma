@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 model User {
@@ -24,7 +25,7 @@ model Project {
   freelancerAddress     String?
   arbiterAddress        String?
   status                String              @default("DRAFT") // DRAFT, AGREED, FUNDED, IN_PROGRESS, COMPLETED, DISPUTED
-  /// Exact USDC base units (6 decimals), stored as a decimal string for SQLite portability.
+  /// Exact USDC base units (6 decimals), stored as a decimal string to avoid floating-point rounding on exact currency amounts.
   budgetUsdc            String
   escrowContractAddress String?
   registerTxHash        String?             // verified createProject tx on Arc
@@ -62,7 +63,7 @@ model Milestone {
   milestoneIndex   Int
   title            String
   description      String?
-  /// Exact USDC base units (6 decimals), stored as a decimal string for SQLite portability.
+  /// Exact USDC base units (6 decimals), stored as a decimal string to avoid floating-point rounding on exact currency amounts.
   amountUsdc       String
   state            String       @default("UNFUNDED") // UNFUNDED, FUNDED, SUBMITTED, REVISION_REQUESTED, APPROVED, RELEASED, DISPUTED, REFUNDED
   criteriaHash     String?
@@ -116,7 +117,7 @@ model AgentPayment {
   evaluation       EvaluationReport? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
   serviceName      String            // e.g. "Security Scanner"
   providerAccount  String            // e.g. "0.0.482910"
-  /// Exact HBAR tinybars, stored as a decimal string for SQLite portability.
+  /// Exact HBAR tinybars, stored as a decimal string to avoid floating-point rounding on exact currency amounts.
   amountTinybars    String
   txId             String?
   status           String            // SETTLED, REJECTED_POLICY, NOT_CONFIGURED

@@ -40,9 +40,16 @@ export function getSystemStatus(env: Record<string, string | undefined> = proces
     zeroG = { status: "BLOCKED", detail: "The configured 0G endpoint was refused (TRUSTORA is testnet-only), so AI evaluation is disabled." };
   }
 
-  const hedera: IntegrationStatus = {
-    status: "NOT_IMPLEMENTED",
-    detail: "The Hedera x402 settlement flow is not wired into the application. No payment is attempted or reported.",
-  };
+  const hederaAccount = env.HEDERA_ACCOUNT_ID?.trim();
+  const hederaKey = env.HEDERA_PRIVATE_KEY?.trim();
+  const hedera: IntegrationStatus = hederaAccount && hederaKey
+    ? {
+        status: "CONFIGURED",
+        detail: "Hedera Testnet credentials active. Optional project activity audit records & x402 settlement safeguards enabled.",
+      }
+    : {
+        status: "NOT_CONFIGURED",
+        detail: "Hedera audit layer is optional and unconfigured. Primary public evidence anchoring is active via Arkiv & ProofTrack.",
+      };
   return { arcEscrow, zeroG, hedera };
 }

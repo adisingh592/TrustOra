@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { recordProofTrackEvent } from "@/lib/prooftrack";
+import { recordProofTrackEvent, recordHederaAuditEvent } from "@/lib/prooftrack";
 import { authErrorResponse, requireAccountRole, requireSession } from "@/lib/session";
 import { rolesOf } from "@/lib/authz";
 import { buildAgreementMessage, verifyAgreementSignature } from "@/lib/siwe";
@@ -75,6 +75,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         eventType: "AGREEMENT_LOCKED",
         referenceType: "APPLICATION_EVENT_ID",
         referenceValue: `${project.id}-AGR-v${agreement.versionNumber}`,
+        verificationStatus: "PENDING",
+      });
+      await recordHederaAuditEvent({
+        projectId: project.id,
+        activityType: "AGREEMENT_ACCEPTED",
+        referenceValue: `${project.id}-HCS-AGR-v${agreement.versionNumber}`,
         verificationStatus: "PENDING",
       });
     }

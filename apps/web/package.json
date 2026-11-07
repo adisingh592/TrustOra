@@ -2,11 +2,15 @@
   "name": "@trustora/web",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "npx next dev --webpack -p 3000",
-    "build": "next build --webpack",
+    "build": "prisma generate && prisma migrate deploy && next build --webpack",
     "start": "next start -p 3000",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:update": "node scripts/db-safe-update.mjs",
     "db:update:apply": "node scripts/db-safe-update.mjs --apply"

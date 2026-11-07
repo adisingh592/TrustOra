@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { run0GEvaluation } from "@/lib/0g";
-import { recordProofTrackEvent } from "@/lib/prooftrack";
+import { recordProofTrackEvent, recordHederaAuditEvent } from "@/lib/prooftrack";
 import { authErrorResponse, requireAccountRole, requireSession } from "@/lib/session";
 import { canPerform } from "@/lib/authz";
 import { loadMilestoneInProject, readJsonBody } from "@/lib/escrow-db";
@@ -112,6 +112,12 @@ export async function POST(
         eventType: "0G_EVALUATION_COMPLETED",
         referenceType: "INFERENCE_REQUEST_ID",
         referenceValue: report.requestId,
+        verificationStatus: "PENDING",
+      });
+      await recordHederaAuditEvent({
+        projectId: id,
+        activityType: "ACTIVITY_VERIFIED",
+        referenceValue: `${id}-HCS-EVAL-${milestone.milestoneIndex}-${report.requestId.slice(0, 8)}`,
         verificationStatus: "PENDING",
       });
     }
