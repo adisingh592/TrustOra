@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useReadContract } from "wagmi";
 import { Bot, CheckCircle2, ChevronDown, Gavel, Loader2, RotateCcw, Send, Undo2, Unlock, Wallet } from "lucide-react";
@@ -83,6 +83,13 @@ export function MilestoneCard({ detail, milestone: m, tx, view }: {
     query: { enabled: isClient && !!address && !!escrow && base.wallet.onArc },
   });
   const { ctx } = useWorkflowWallet(detail, { allowanceUnits: (allowance.data as bigint | undefined) ?? null, amountUnits });
+
+  useEffect(() => {
+    if (tx.state.phase === "done") {
+      void allowance.refetch();
+      void queryClient.invalidateQueries();
+    }
+  }, [tx.state.phase, allowance, queryClient]);
 
   const systemStatus = useSystemStatus();
   const zeroGReady = systemStatus.data?.zeroG.status === "CONFIGURED";
@@ -194,6 +201,36 @@ export function MilestoneCard({ detail, milestone: m, tx, view }: {
         </details>
       )}
       {latestEval && <div className="mt-4"><EvaluationPanel evaluation={latestEval} /></div>}
+
+      {m.state === "UNFUNDED" && view === "freelancer" && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-xs text-amber-900">
+          <p className="font-semibold text-amber-950">Milestone Escrow: {formatUsdc(m.amountUsdc)} USDC</p>
+          <p className="mt-1">
+            Waiting for the client to register and fund this milestone on Arc Testnet.
+            Once USDC is secured in the smart contract escrow, you will be able to submit your deliverable here.
+          </p>
+        </div>
+      )}
+
+      {m.state === "FUNDED" && view === "client" && (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 text-xs text-emerald-900">
+          <p className="font-semibold text-emerald-950">✓ {formatUsdc(m.amountUsdc)} USDC Secured in Escrow</p>
+          <p className="mt-1">
+            Funds are locked on Arc Testnet. The freelancer is currently working on this milestone. Once submitted, you can review the 0G AI assessment and release funds.
+          </p>
+        </div>
+      )}
+
+      {m.state === "UNFUNDED" && view === "client" && m.addTxHash && (
+        <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-3.5 text-xs text-blue-900">
+          <p className="font-semibold text-blue-950">Escrow Funding (2-Step Flow)</p>
+          <p className="mt-1 text-slate-600">
+            1. <strong>Approve USDC</strong>: authorizes the contract to hold {formatUsdc(m.amountUsdc)} USDC.
+            <br />
+            2. <strong>Fund Escrow</strong>: locks the deposit on Arc Testnet.
+          </p>
+        </div>
+      )}
 
       {shown.length > 0 && (
         <div className="mt-5 space-y-3">

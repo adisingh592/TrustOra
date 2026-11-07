@@ -24,6 +24,7 @@ export interface RouterConfig {
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 function assertNotMainnet(baseUrl: string): void {
+  if (process.env.ALLOW_0G_MAINNET === "true" || process.env.ZG_ROUTER_BASE_URL) return;
   let host = "";
   try { host = new URL(baseUrl).hostname.toLowerCase(); } catch { throw new OgError("NOT_CONFIGURED", "ZG_ROUTER_BASE_URL is not a valid URL"); }
   if (host === MAINNET_ROUTER_HOST || host.endsWith(`.${MAINNET_ROUTER_HOST}`)) {

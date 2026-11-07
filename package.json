@@ -14,7 +14,7 @@
     "compile:contracts": "cd packages/contracts && npx hardhat compile",
     "typecheck": "tsc --noEmit -p apps/web/tsconfig.json",
     "lint": "npm run typecheck",
-    "dev": "cd apps/web && npm run dev",
+    "dev": "cd apps/web && npx next dev --webpack -p 3000",
     "build": "cd apps/web && npm run build"
   },
   "devDependencies": {

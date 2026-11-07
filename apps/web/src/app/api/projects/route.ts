@@ -128,11 +128,11 @@ export async function POST(req: Request) {
     }
     const agreement = createAgreementVersion(criteria, 1);
 
-    // Retry on the (unlikely) project-id collision between concurrent creators.
+    // Retry on project-id collision; use random 6-digit sequence to avoid testnet collisions with fixtures
     let project = null;
-    const base = await prisma.project.count();
-    for (let attempt = 0; attempt < 5 && !project; attempt++) {
-      const projectId = generateProjectId(2026, base + 1042 + attempt);
+    for (let attempt = 0; attempt < 10 && !project; attempt++) {
+      const seq = 100000 + Math.floor(Math.random() * 899999);
+      const projectId = generateProjectId(2026, seq);
       try {
         project = await prisma.project.create({
           data: {

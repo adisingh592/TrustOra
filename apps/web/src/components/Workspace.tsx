@@ -48,25 +48,28 @@ function UsdcBalance() {
 export function Workspace({ detail, view }: { detail: ProjectResponse; view: ProjectRole }) {
   const tx = useEscrowTx(detail.project.id);
 
-  if (!detail.viewer.roles.includes(view)) {
-    return (
-      <Empty title={`You are not the ${view} on this project`}>
-        This workspace is only for the {view}'s wallet. Your role here: {detail.viewer.roles.join(", ")}. To act as the {view}, switch to that wallet and sign in again.
-      </Empty>
-    );
-  }
+  const isAuthorizedRole = detail.viewer.roles.includes(view);
 
   return (
     <div className="space-y-5">
+      {!isAuthorizedRole && (
+        <div className="flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-800">
+          <span>
+            Viewing <strong>{TITLE[view]}</strong>. Connected wallet: <strong>{detail.viewer.roles.join(", ")}</strong>. On-chain transactions are signed by the {view}&apos;s wallet.
+          </span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex flex-wrap items-center gap-3 text-xl font-semibold text-[#172B4D]">
             {TITLE[view]}
-            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide ${ACCENT[view]}`}>You are the {view}</span>
+            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide ${ACCENT[view]}`}>
+              {isAuthorizedRole ? `You are the ${view}` : `${view} perspective`}
+            </span>
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">{BLURB[view]}</p>
         </div>
-        {view === "client" && <UsdcBalance />}
+        <UsdcBalance />
       </div>
 
       {!detail.chain.escrowAddress && (

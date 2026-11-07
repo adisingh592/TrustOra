@@ -1,7 +1,8 @@
 "use client";
 
 import { CheckCircle2, Loader2, UserRound, Wrench } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useArcWallet } from "@/hooks/useArcWallet";
 import type { AccountRole } from "@/lib/roles";
@@ -24,13 +25,21 @@ const cards: Array<{ role: AccountRole; title: string; icon: typeof UserRound; d
 ];
 
 export default function RegisterPage() {
+  const router = useRouter();
   const wallet = useArcWallet();
   const auth = useAuth();
   const [selected, setSelected] = useState<AccountRole | null>(null);
 
+  useEffect(() => {
+    if (auth.status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [auth.status, router]);
+
   async function continueRegistration() {
     if (!selected) return;
     await auth.signIn(selected);
+    router.push("/dashboard");
   }
 
   return (

@@ -26,6 +26,7 @@ interface WriteArgs {
   abi: readonly unknown[];
   functionName: string;
   args: readonly unknown[];
+  gas?: bigint;
 }
 interface Prepared {
   write: WriteArgs;
@@ -112,7 +113,11 @@ export function useEscrowTx(projectId: string) {
       try {
         setState({ phase: "signing", label, canResync: false, verifies: true });
         const prepared = await prepare(); // e.g. store the deliverable text so its hash can be anchored
-        const hash = await writeContractAsync({ ...prepared.write, chainId: ARC_TESTNET_CONFIG.id } as never);
+        const hash = await writeContractAsync({
+          gas: 350000n,
+          ...prepared.write,
+          chainId: ARC_TESTNET_CONFIG.id,
+        } as never);
         setState({ phase: "confirming", label, hash, canResync: false, verifies: !!prepared.syncPath });
         await waitForTransactionReceipt(config, { hash, chainId: ARC_TESTNET_CONFIG.id });
         if (!prepared.syncPath) {

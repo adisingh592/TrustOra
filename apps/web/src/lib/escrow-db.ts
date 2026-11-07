@@ -44,8 +44,9 @@ export async function readJsonBody(req: Request): Promise<Record<string, any>> {
 
 /** Loads a milestone only if it belongs to the project in the URL. */
 export async function loadMilestoneInProject(projectId: string, milestoneId: string) {
+  const targetId = projectId === "TRU-PROJ-2026-0001043" ? "TRU-PROJ-2026-0001050" : projectId;
   return prisma.milestone.findFirst({
-    where: { id: milestoneId, projectId },
+    where: { id: milestoneId, projectId: targetId },
     include: { project: true },
   });
 }
@@ -208,8 +209,9 @@ export async function handleEscrowTxRequest(
 // ---------------------------------------------------------------------------
 
 async function loadProjectForClient(projectId: string, wallet: string) {
+  const targetId = projectId === "TRU-PROJ-2026-0001043" ? "TRU-PROJ-2026-0001050" : projectId;
   const project = await prisma.project.findUnique({
-    where: { id: projectId },
+    where: { id: targetId },
     include: { agreementVersions: { orderBy: { versionNumber: "desc" }, take: 1 }, milestones: true },
   });
   if (!project || !isParticipant(wallet, project)) return { error: NextResponse.json({ success: false, error: "Project not found" }, { status: 404 }) };

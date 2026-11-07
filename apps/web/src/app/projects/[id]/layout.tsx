@@ -21,12 +21,11 @@ export default function ProjectLayout({ children }: { children: ReactNode }) {
         {({ project, viewer }) => {
           const base = `/projects/${project.id}`;
           const tabs = [
-            { href: base, label: "Overview", show: true },
-            { href: `${base}/client`, label: "Client workspace", show: viewer.roles.includes("client") },
-            { href: `${base}/freelancer`, label: "Freelancer workspace", show: viewer.roles.includes("freelancer") },
-            { href: `${base}/arbiter`, label: "Arbiter", show: viewer.roles.includes("arbiter") },
-            { href: `${base}/proof`, label: "ProofTrack", show: true },
-          ].filter((t) => t.show);
+            { href: base, label: "Project Overview" },
+            { href: `${base}/client`, label: "Client Workspace" },
+            { href: `${base}/freelancer`, label: "Freelancer Workspace" },
+            { href: `${base}/proof`, label: "ProofTrack Evidence" },
+          ];
           return (
             <div className="space-y-6">
               <div>

@@ -1,4 +1,4 @@
-import { createPublicClient, http, defineChain } from "viem";
+import { createPublicClient, http, fallback, defineChain } from "viem";
 import { ARC_TESTNET_CONFIG as BASE_CONFIG } from "../../../../packages/contracts/src/lib/arc";
 
 // Single source of truth lives in packages/contracts/src/lib/arc.ts.
@@ -18,8 +18,14 @@ export {
 } from "../../../../packages/contracts/src/lib/arc";
 export type { ChainMilestoneState, Hex } from "../../../../packages/contracts/src/lib/arc";
 
+export function getArcRpcUrls(): string[] {
+  const custom = process.env.ARC_RPC_URL?.trim();
+  const defaults = ["https://rpc.testnet.arc.io", "https://rpc.testnet.arc.network"];
+  return custom ? [custom, ...defaults.filter((u) => u !== custom)] : defaults;
+}
+
 export function getArcRpcUrl(): string {
-  return process.env.ARC_RPC_URL || BASE_CONFIG.rpcUrls.default.http[0];
+  return getArcRpcUrls()[0];
 }
 
 export const arcTestnetChain = defineChain({
@@ -27,14 +33,16 @@ export const arcTestnetChain = defineChain({
   name: BASE_CONFIG.name,
   nativeCurrency: { ...BASE_CONFIG.nativeCurrency },
   rpcUrls: {
-    default: { http: [getArcRpcUrl()] },
+    default: { http: getArcRpcUrls() },
   },
   blockExplorers: { default: { ...BASE_CONFIG.blockExplorers.default } },
 });
 
 export const arcPublicClient = createPublicClient({
   chain: arcTestnetChain,
-  transport: http(getArcRpcUrl()),
+  transport: fallback(
+    getArcRpcUrls().map((url) => http(url, { retryCount: 3, retryDelay: 1000 })),
+  ),
 });
 
 /** Escrow address comes from server config only, never from request bodies. */
